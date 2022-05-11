@@ -1,6 +1,6 @@
 # CppUtils
-This repository contains some C++ header files, 
-which contain code snippets that I like to use in my C++ projects.
+This repository consists of some C++ header files 
+with code snippets that I like to use in my C++ projects.
 
 ## Installation
 To install the library test functions:
