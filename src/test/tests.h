@@ -103,4 +103,5 @@ int run_tests();
 * Test functions
 *********************************************************************/
 void run_tests_Vec2(); 
+void run_tests_Geometry(); 
 

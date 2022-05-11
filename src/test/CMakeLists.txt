@@ -1,6 +1,7 @@
 set( TESTS TestCppUtils )
 
 add_executable( ${TESTS}
+  tests_Geometry.cpp
   tests_Vec2.cpp
   tests.cpp
   main.cpp
