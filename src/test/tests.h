@@ -97,11 +97,13 @@ static inline bool eval_test(bool cond,
 /*********************************************************************
 * The main test function
 *********************************************************************/
-int run_tests();
+int run_tests(const std::string& library);
 
 /*********************************************************************
 * Test functions
 *********************************************************************/
 void run_tests_Vec2(); 
+void run_tests_MathUtility();
 void run_tests_Geometry(); 
+void run_tests_QuadTree();
 

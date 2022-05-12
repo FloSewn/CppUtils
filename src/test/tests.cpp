@@ -3,13 +3,9 @@
 #include <string>
 
 #include "tests.h"
+#include "Helpers.h"
 
 
-/*********************************************************************
-* Test output format
-*********************************************************************/
-#define TESTMSG(str)                                                 \
-  do { std::clog << str << std::endl; } while(false)
   
 /*********************************************************************
 * Color text
@@ -24,22 +20,54 @@
 /*********************************************************************
 * The main test function
 *********************************************************************/
-int run_tests()
+int run_tests(const std::string& library)
 {
+  CppUtils::SimpleLogger TESTMSG(std::clog, "[Test] ");
+
   /*------------------------------------------------------------------
   | Print header
   ------------------------------------------------------------------*/
-  TESTMSG("");
-  TESTMSG("   -------------------------   " );
-  TESTMSG("   | CppUtils - Test suite |   " );
-  TESTMSG("   -------------------------   " );
-  TESTMSG("");
+  TESTMSG << "" << std::endl;
+  TESTMSG << "   -------------------------   " << std::endl;
+  TESTMSG << "   | CppUtils - Test suite |   " << std::endl;
+  TESTMSG << "   -------------------------   " << std::endl;
+  TESTMSG << "";
 
   /*------------------------------------------------------------------
   | Run all tests
   ------------------------------------------------------------------*/
-  run_tests_Vec2();
-  run_tests_Geometry();
+  if ( !library.compare("Vec2") )
+  {
+    TESTMSG << "  Running tests for \"Vec2\" library..." 
+            << std::endl;
+    run_tests_Vec2();
+  }
+  else if ( !library.compare("MathUtility") )
+  {
+    TESTMSG << "  Running tests for \"MathUtility\" library..."
+            << std::endl;
+    run_tests_MathUtility();
+  }
+  else if ( !library.compare("Geometry") )
+  {
+    TESTMSG << "  Running tests for \"Geometry\" library..."
+            << std::endl;
+    run_tests_Geometry();
+  }
+  else if ( !library.compare("QuadTree") )
+  {
+    TESTMSG << "  Running tests for \"QuadTree\" library..."
+            << std::endl;
+    run_tests_QuadTree();
+  }
+  else
+  {
+    TESTMSG << "" << std::endl;
+    TESTMSG << RED "  No library \"" << library << "\" found to test" NC
+            << std::endl;
+    TESTMSG << "" << std::endl;
+    return EXIT_FAILURE;
+  }
 
   /*------------------------------------------------------------------
   | Check for failed tests
@@ -55,9 +83,9 @@ int run_tests()
     if ( !data.state() )
     {
       ++error_count;
-      TESTMSG( RED "[ERROR] Test (" << error_count 
-                << "/" << total_tests << ") failed.\n" NC
-                << "        --> " << data );
+      TESTMSG << RED "[ERROR] Test (" << error_count 
+              << "/" << total_tests << ") failed." NC << std::endl;
+      TESTMSG << "        --> " << data << std::endl;
     }
     state &= data.state();
   }
@@ -65,18 +93,18 @@ int run_tests()
   /*------------------------------------------------------------------
   | Succeess / fail
   ------------------------------------------------------------------*/
-  TESTMSG("");
+  TESTMSG << "" << std::endl;
   if (!state)
   {
-    TESTMSG( RED "  --> (" << error_count << "/" 
-             << total_tests << ") tests failed." NC );
+    TESTMSG << RED "  --> (" << error_count << "/" 
+            << total_tests << ") tests failed." NC  << std::endl;
   }
   else
   {
-    TESTMSG( GRN "  --> (" << total_tests-error_count << "/" 
-             << total_tests << ") tests succeeded." NC );
+    TESTMSG << GRN "  --> (" << total_tests-error_count << "/" 
+            << total_tests << ") tests succeeded." NC << std::endl;
   }
-  TESTMSG("\n");
+  TESTMSG << "\n" << std::endl;
 
   if (!state)
     return EXIT_FAILURE;
