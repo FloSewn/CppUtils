@@ -28,6 +28,8 @@ add_subdirectory( src/test )
 enable_testing()
 
 # does the application run
-add_test(NAME Vec2 COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "Vec2")
 add_test(NAME MathUtility COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "MathUtility")
+add_test(NAME StringOps COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "StringOps")
+add_test(NAME Vec2 COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "Vec2")
 add_test(NAME Geometry COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "Geometry")
+add_test(NAME QuadTree COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "QuadTree")

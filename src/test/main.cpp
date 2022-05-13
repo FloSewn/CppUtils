@@ -11,18 +11,19 @@
 *********************************************************************/
 int main(int argc, char *argv[])
 {
+  CppUtils::SimpleLogger TESTMSG(std::clog, "  ");
 
   if ( argc < 2 )
   {
-    std::cout << std::endl;
-    std::cout << "   -------------------------   " << std::endl;
-    std::cout << "   | CppUtils - Test suite |   " << std::endl;
-    std::cout << "   -------------------------   " << std::endl;
-    std::cout << std::endl;
-    std::cout << "Usage: " << argv[0] << " <library-name-to-test>" 
+    TESTMSG << std::endl;
+    TESTMSG << "   -------------------------   " << std::endl;
+    TESTMSG << "   | CppUtils - Test suite |   " << std::endl;
+    TESTMSG << "   -------------------------   " << std::endl;
+    TESTMSG << std::endl;
+    TESTMSG << "Usage: " << argv[0] << " <library-name-to-test>" 
               << std::endl;
-    std::cout << std::endl;
-    std::cout << std::endl;
+    TESTMSG << std::endl;
+    TESTMSG << std::endl;
     return EXIT_FAILURE;
   }
 

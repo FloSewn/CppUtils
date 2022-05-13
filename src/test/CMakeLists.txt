@@ -5,6 +5,7 @@ add_executable( ${TESTS}
   tests_Geometry.cpp
   tests_MathUtility.cpp
   tests_Vec2.cpp
+  tests_StringOps.cpp
   tests.cpp
   main.cpp
 )

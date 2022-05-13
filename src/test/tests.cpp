@@ -22,7 +22,7 @@
 *********************************************************************/
 int run_tests(const std::string& library)
 {
-  CppUtils::SimpleLogger TESTMSG(std::clog, "[Test] ");
+  CppUtils::SimpleLogger TESTMSG(std::clog, "  ");
 
   /*------------------------------------------------------------------
   | Print header
@@ -31,22 +31,28 @@ int run_tests(const std::string& library)
   TESTMSG << "   -------------------------   " << std::endl;
   TESTMSG << "   | CppUtils - Test suite |   " << std::endl;
   TESTMSG << "   -------------------------   " << std::endl;
-  TESTMSG << "";
+  TESTMSG << "" << std::endl;
 
   /*------------------------------------------------------------------
   | Run all tests
   ------------------------------------------------------------------*/
-  if ( !library.compare("Vec2") )
-  {
-    TESTMSG << "  Running tests for \"Vec2\" library..." 
-            << std::endl;
-    run_tests_Vec2();
-  }
-  else if ( !library.compare("MathUtility") )
+  if ( !library.compare("MathUtility") )
   {
     TESTMSG << "  Running tests for \"MathUtility\" library..."
             << std::endl;
     run_tests_MathUtility();
+  }
+  else if ( !library.compare("StringOps") )
+  {
+    TESTMSG << "  Running tests for \"StringOps\" library..."
+            << std::endl;
+    run_tests_StringOps();
+  }
+  else if ( !library.compare("Vec2") )
+  {
+    TESTMSG << "  Running tests for \"Vec2\" library..."
+            << std::endl;
+    run_tests_Vec2();
   }
   else if ( !library.compare("Geometry") )
   {
@@ -56,16 +62,16 @@ int run_tests(const std::string& library)
   }
   else if ( !library.compare("QuadTree") )
   {
-    TESTMSG << "  Running tests for \"QuadTree\" library..."
+    TESTMSG << "  Running tests for \"QuadTree\" library..." 
             << std::endl;
     run_tests_QuadTree();
   }
   else
   {
-    TESTMSG << "" << std::endl;
-    TESTMSG << RED "  No library \"" << library << "\" found to test" NC
-            << std::endl;
-    TESTMSG << "" << std::endl;
+    TESTMSG << std::endl;
+    TESTMSG << RED "  No library \"" << library 
+            << "\" found to test" NC << std::endl;
+    TESTMSG << std::endl;
     return EXIT_FAILURE;
   }
 
@@ -104,7 +110,8 @@ int run_tests(const std::string& library)
     TESTMSG << GRN "  --> (" << total_tests-error_count << "/" 
             << total_tests << ") tests succeeded." NC << std::endl;
   }
-  TESTMSG << "\n" << std::endl;
+  TESTMSG << std::endl;
+  TESTMSG << std::endl;
 
   if (!state)
     return EXIT_FAILURE;

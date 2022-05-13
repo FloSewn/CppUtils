@@ -9,6 +9,7 @@
 
 #include <cassert>
 #include <iostream>
+#include <sstream>
 #include <string>
 
 namespace CppUtils {
@@ -31,27 +32,71 @@ static inline void ASSERT(bool cond, const std::string& msg)
 #endif
 
 /*********************************************************************
-* A simple logging device
+* A simple logging device. 
+* It gives the possibility to choose the output, as well as a 
+* a logging message at the start. 
+* Must be used with std::endl - otherwise newlines are confusing
+*
+* Source: 
+* -------
+*   https://stackoverflow.com/questions/2212776/\
+*   overload-handling-of-stdendl
 *********************************************************************/
-class SimpleLogger
+class SimpleLogger: public std::ostream
 {
+
 public:
-  SimpleLogger(std::ostream& o, std::string s)
-  : out_(o)
-  , msg_(std::move(s))
+  SimpleLogger(std::ostream& str, std::string key)
+  : std::ostream(&buffer_)
+  , buffer_(str, std::move(key))
   {}
-  
-  template <typename T>
-  std::ostream& operator<<(T const& x)
-  { return out_ << msg_ << x; }
 
 private:
-  std::ostream& out_;
-  std::string const msg_;
+
+  /*------------------------------------------------------------------
+  | A streambuffer that prefixes every line with a key
+  ------------------------------------------------------------------*/
+  class LogBuf: public std::stringbuf
+  {
+  public: 
+    // Constructor
+    LogBuf(std::ostream& str, std::string key) 
+    : output_{str}
+    , key_ {std::move(key)}
+    {}
+
+    // Destructor
+    ~LogBuf() 
+    {
+      if (pbase() != pptr()) 
+      {
+        putOutput();
+      }
+    }
+
+    // Syncronize stream with output
+    virtual int sync() 
+    {
+      putOutput();
+      return 0;
+    }
+
+    // This is were things happen
+    void putOutput() 
+    {
+      output_ << key_ << str();
+      str("");
+      output_.flush();
+    }
+    
+  private:
+    std::ostream& output_;
+    std::string key_;
+  };
+
+  LogBuf buffer_;
 
 }; // SimpleLogger
 
-//SimpleLogger MSG(std::clog, "");
-//SimpleLogger TESTMSG(std::clog, "[TEST] ");
 
 } // namespace CppUtils
