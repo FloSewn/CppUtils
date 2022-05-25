@@ -73,6 +73,12 @@ int run_tests(const std::string& library)
             << std::endl;
     run_tests_QuadTree();
   }
+  else if ( !library.compare("ParaReader") )
+  {
+    TESTMSG << "  Running tests for \"ParaReader\" library..." 
+            << std::endl;
+    run_tests_ParaReader();
+  }
   else
   {
     TESTMSG << std::endl;

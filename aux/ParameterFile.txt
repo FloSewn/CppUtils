@@ -1,0 +1,33 @@
+# This is a test parameter file for the ParaReader library
+
+
+Scalar bool parameter: 1
+
+    Scalar int parameter: 1 # This is a test
+
+Invalid int parameter: d,ffa
+
+Scalar float parameter: 1.0f # This is another test
+
+Scalar double parameter: 1.0 3.4 # <- This 3.4 is further test
+
+String parameter: Test
+
+
+Parameter list start:
+1, 2, 3
+4, 5, 6
+7, 8, 9
+Parameter list end
+
+List parameter: 1.0, 2.0, 3.0, 4.0, 5.0
+
+Invalid list parameter: 1.0, 2.0, ,4.5, f ,, 5,
+
+Invalid list start:
+1, 2, 3
+, , 3
+a f, 3
+3, 4, 5
+f , a eae
+Invalid list end

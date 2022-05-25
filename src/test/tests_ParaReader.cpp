@@ -1,0 +1,255 @@
+/*
+* This file is part of the CppUtils library.  
+* This code was written by Florian Setzwein in 2022, 
+* and is covered under the MIT License
+* Refer to the accompanying documentation for details
+* on usage and license.
+*/
+#include <iostream>
+#include <cassert>
+#include <string>
+
+#include "CppUtilsConfig.h"
+
+#include "tests.h"
+#include "Helpers.h"
+#include "MathUtility.h"
+
+#include "ParaReader.h"
+
+namespace ParaReaderTests 
+{
+
+using namespace CppUtils;
+
+
+/*--------------------------------------------------------------------
+| Test reader constructor
+--------------------------------------------------------------------*/
+static void constructor()
+{
+  std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
+  std::string file_name {source_dir + "/aux/ParameterFile.txt"};
+
+  // Handle invalid input file path
+  try 
+  {
+    ParaReader reader { file_name + "INVALID" };
+    CHECK(false);
+  }
+  catch (...)
+  {
+    CHECK( true );
+  }
+
+  // Handle correct input file path
+  ParaReader reader { file_name };
+  CHECK( true );
+
+} // constructor
+
+/*--------------------------------------------------------------------
+| Test scalar parameters
+--------------------------------------------------------------------*/
+static void scalar_parameters()
+{
+  std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
+  std::string file_name {source_dir + "/aux/ParameterFile.txt"};
+
+  ParaReader reader { file_name };
+
+  // Create working parameter definitions
+  //------------------------------------------------------------------
+  reader.new_scalar_parameter<bool>( 
+      "bool_param",  "Scalar bool parameter:" );
+  reader.new_scalar_parameter<int>( 
+      "int_param", "Scalar int parameter:" );
+  reader.new_scalar_parameter<float>( 
+      "float_param", "Scalar float parameter:" );
+  reader.new_scalar_parameter<double>( 
+      "double_param", "Scalar double parameter:" );
+  reader.new_scalar_parameter<int>( 
+      "invalid_int_param", "Invalid int parameter:" );
+  reader.new_scalar_parameter<std::string>(
+      "str_param", "String parameter:");
+
+  // Check that invalid parameter definition does not succeed
+  //------------------------------------------------------------------
+  try
+  {
+    reader.new_scalar_parameter<double>( 
+        "double_param", "Scalar double parameter:" );
+    CHECK(false);
+  }
+  catch (...)
+  {
+    CHECK(true);
+  }
+
+  // Check that empty parameter queries do not work
+  //------------------------------------------------------------------
+  try
+  {
+    reader.new_scalar_parameter<double>( 
+        "next_double_param", "" );
+    CHECK(false);
+  }
+  catch (...)
+  {
+    CHECK(true);
+  }
+
+
+  // Check queries
+  //------------------------------------------------------------------
+  reader.query<bool>( "bool_param" );
+  reader.query<int>( "int_param" );
+  reader.query<std::string>( "str_param" );
+
+  bool bool_param = reader.get_value<bool>("bool_param");
+  CHECK( (bool_param == true) );
+  CHECK( reader.found("bool_param") );
+
+  bool int_param = reader.get_value<int>("int_param");
+  CHECK( (int_param == 1) );
+  CHECK( reader.found("int_param") );
+
+  CHECK( !reader.query<int>( "invalid_int_param" ) );
+  CHECK( !reader.found("invalid_int_param") );
+
+  std::string str_param = reader.get_value<std::string>("str_param");
+
+  CHECK( reader.found("str_param") );
+  CHECK( str_param == "Test" );
+
+
+} // scalar_parameters()
+
+
+/*--------------------------------------------------------------------
+| Test list parameters
+--------------------------------------------------------------------*/
+static void list_parameters()
+{
+  std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
+  std::string file_name {source_dir + "/aux/ParameterFile.txt"};
+
+  ParaReader reader { file_name };
+
+  // Create working parameter definitions
+  //------------------------------------------------------------------
+  reader.new_list_parameter<int>( 
+      "para_list_1",  "Parameter list start:", "Parameter list end", 3 );
+  reader.new_list_parameter<double>( 
+      "para_list_2",  "List parameter:", 4 );
+
+  reader.new_list_parameter<int>( 
+      "invalid_list_1",  "Invalid list start:", "Invalid list end", 3 );
+  reader.new_list_parameter<double>( 
+      "invalid_list_2",  "Invalid list parameter:", 4 );
+
+
+  // Check that invalid parameter definition does not succeed
+  //------------------------------------------------------------------
+  try
+  {
+    reader.new_list_parameter<int>( 
+      "para_list_1",  "Parameter list start:", "Parameter list end:", 3);
+    CHECK(false);
+  }
+  catch (...)
+  {
+    CHECK(true);
+  }
+
+  // Check that empty parameter queries do not work
+  //------------------------------------------------------------------
+  try
+  {
+    reader.new_list_parameter<int>( 
+      "para_list_3",  "", "Parameter list end:", 4 );
+    CHECK(false);
+  }
+  catch (...)
+  {
+    CHECK(true);
+  }
+  try
+  {
+    reader.new_list_parameter<int>( 
+      "para_list_4",  "Parameter list start:", "", 4 );
+    CHECK(false);
+  }
+  catch (...)
+  {
+    CHECK(true);
+  }
+  try
+  {
+    reader.new_list_parameter<int>( 
+      "para_list_5",  "", 5 );
+    CHECK(false);
+  }
+  catch (...)
+  {
+    CHECK(true);
+  }
+
+  // Check queries of valid lists
+  //------------------------------------------------------------------
+  reader.query<double>( "para_list_2" );
+  CHECK( reader.found("para_list_2") );
+  CHECK( EQ(reader.get_value<double>(0, "para_list_2"), 1.0) );
+  CHECK( EQ(reader.get_value<double>(1, "para_list_2"), 2.0) );
+  CHECK( EQ(reader.get_value<double>(2, "para_list_2"), 3.0) );
+  CHECK( EQ(reader.get_value<double>(3, "para_list_2"), 4.0) );
+  CHECK( EQ(reader.get_value<double>(4, "para_list_2"), 1.0) );
+
+  reader.query<int>( "para_list_1" );
+  CHECK( reader.found("para_list_1") );
+  CHECK( reader.get_parameter<int>("para_list_1").columns() == 3 );
+  CHECK( reader.get_parameter<int>("para_list_1").rows() == 3 );
+  CHECK( reader.get_value<int>(0, "para_list_1") == 1 );
+  CHECK( reader.get_value<int>(1, "para_list_1") == 2 );
+
+  CHECK( reader.get_value<int>(1, 1, "para_list_1") == 5 );
+  CHECK( reader.get_value<int>(1, 2, "para_list_1") == 8 );
+
+
+  // Check queries of invalid lists
+  //------------------------------------------------------------------
+  reader.query<double>( "invalid_list_2" );
+  CHECK( reader.found("invalid_list_2") );
+  CHECK( EQ(reader.get_value<double>(0, "invalid_list_2"), 1.0) );
+  CHECK( EQ(reader.get_value<double>(1, "invalid_list_2"), 2.0) );
+  CHECK( EQ(reader.get_value<double>(2, "invalid_list_2"), 4.5) );
+  CHECK( EQ(reader.get_value<double>(3, "invalid_list_2"), 5.0) );
+
+  try
+  {
+    reader.query<int>( "invalid_list_1" );
+  }
+  catch( ... )
+  {
+    CHECK( true );
+  }
+
+
+
+} // list_parameters()
+
+
+
+} // namespace ParaReaderTests 
+
+
+/*********************************************************************
+* Run tests for: ParaReader.h
+*********************************************************************/
+void run_tests_ParaReader()
+{
+  ParaReaderTests::constructor();
+  ParaReaderTests::scalar_parameters();
+  ParaReaderTests::list_parameters();
+
+} // run_tests_ParaReader()

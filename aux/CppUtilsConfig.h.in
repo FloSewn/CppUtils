@@ -1,0 +1,5 @@
+// Config.h.in
+#pragma once
+
+#define CPPUTILSCONFIG__SOURCE_DIR "${CMAKE_SOURCE_DIR}"
+

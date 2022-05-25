@@ -250,7 +250,7 @@ void get_items()
   /*------------------------------------------------------------------
   | Get items in rectangle
   ------------------------------------------------------------------*/
-  vector<const Vertex*> r_found {};
+  vector<Vertex*> r_found {};
   
   size_t n_r = quadtree.get_items( {-0.25,-0.25}, {0.25,0.25}, r_found );
 
@@ -260,7 +260,7 @@ void get_items()
   /*------------------------------------------------------------------
   | Get items in circle
   ------------------------------------------------------------------*/
-  vector<const Vertex*> c_found {};
+  vector<Vertex*> c_found {};
   
   size_t n_c = quadtree.get_items( {0.25,0.25}, 0.25, c_found );
 
