@@ -20,6 +20,8 @@
 
 namespace CppUtils {
 
+static SimpleLogger QuadTreeLogger { std::clog, "[QuadTree]: " };
+
 /*********************************************************************
 * This class refers to a quad tree for 2D simplices
 *
@@ -57,12 +59,14 @@ public:
            size_t          max_depth, 
            const Vec2<V>&  center={0.0,0.0}, 
            size_t          depth=0,
-           QuadTree<T,V>*     parent=nullptr)
+           SimpleLogger&   logger=QuadTreeLogger,
+           QuadTree<T,V>*  parent=nullptr)
   : scale_      { scale     }
   , max_item_   { max_item  }
   , max_depth_  { max_depth }
   , center_     { center    }
   , depth_      { depth     }
+  , logger_     { &logger   }
   , parent_     { parent    }
   {  
     halfscale_ = 0.5 * scale_;
@@ -233,7 +237,7 @@ public:
       } 
       catch ( std::exception const& e ) 
       {
-        std::cout << "[QuadTree-Error]: " << e.what() << "\n"; 
+        *logger_ << e.what() << std::endl; 
       }
     }
 
@@ -368,19 +372,19 @@ private:
 
     // Child quad: NORTH-EAST (NE)
     children_[0] = new QuadTree<T,V> 
-    { halfscale_, max_item_, max_depth_, c0, child_depth, this};
+    { halfscale_, max_item_, max_depth_, c0, child_depth, *logger_, this};
                                
     // Child quad: NORTH-WEST (NW)
     children_[1] = new QuadTree<T,V> 
-    { halfscale_, max_item_, max_depth_, c1, child_depth, this};
+    { halfscale_, max_item_, max_depth_, c1, child_depth, *logger_, this};
 
     // Child quad: SOUTH-WEST (SW)
     children_[2] = new QuadTree<T,V> 
-    { halfscale_, max_item_, max_depth_, c2, child_depth, this};
+    { halfscale_, max_item_, max_depth_, c2, child_depth, *logger_, this};
 
     // Child quad: SOUTH-EAST (SE)
     children_[3] = new QuadTree<T,V> 
-    { halfscale_, max_item_, max_depth_, c3, child_depth, this};
+    { halfscale_, max_item_, max_depth_, c3, child_depth, *logger_, this};
 
     // Distribute items among children
     try 
@@ -438,22 +442,25 @@ private:
   /*------------------------------------------------------------------
   | Attributes
   ------------------------------------------------------------------*/
-  double       scale_     { 0.0 };
-  double       halfscale_ { 0.0 };
-  size_t       max_item_  { 0 };
-  size_t       max_depth_ { 0 };
+  double         scale_     { 0.0 };
+  double         halfscale_ { 0.0 };
+  size_t         max_item_  { 0 };
+  size_t         max_depth_ { 0 };
 
-  Vec2<V>      center_   { 0.0, 0.0 };
-  Vec2<V>      lowleft_  { 0.0, 0.0 };
-  Vec2<V>      upright_  { 0.0, 0.0 };
+  Vec2<V>        center_   { 0.0, 0.0 };
+  Vec2<V>        lowleft_  { 0.0, 0.0 };
+  Vec2<V>        upright_  { 0.0, 0.0 };
 
-  bool         split_     { false };
-  size_t       depth_     { 0 };
-  size_t       n_items_   { 0 };
+  bool           split_     { false };
+  size_t         depth_     { 0 };
+  size_t         n_items_   { 0 };
 
-  List         items_;
-  Array        children_  { nullptr };
-  QuadTree<T,V>*  parent_    { nullptr };
+  SimpleLogger*  logger_;
+
+  List           items_;
+  Array          children_  { nullptr };
+  QuadTree<T,V>* parent_    { nullptr };
+
 
 
 

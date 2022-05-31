@@ -114,5 +114,6 @@ void run_tests_StringOps();
 void run_tests_Vec2(); 
 void run_tests_Geometry(); 
 void run_tests_QuadTree();
+void run_tests_Container();
 void run_tests_ParaReader();
 

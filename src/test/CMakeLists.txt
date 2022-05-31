@@ -2,6 +2,7 @@ set( TESTS TestCppUtils )
 
 add_executable( ${TESTS}
   tests_ParaReader.cpp
+  tests_Container.cpp
   tests_QuadTree.cpp
   tests_Geometry.cpp
   tests_MathUtility.cpp

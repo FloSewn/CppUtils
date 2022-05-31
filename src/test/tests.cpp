@@ -12,8 +12,6 @@
 #include "tests.h"
 #include "Helpers.h"
 
-
-  
 /*********************************************************************
 * Color text
 *********************************************************************/
@@ -22,7 +20,6 @@
 #define GRN "\e[0;32m"
 #define CYN "\e[0;36m"
 #define REDB "\e[41m"
-
 
 /*********************************************************************
 * The main test function
@@ -72,6 +69,12 @@ int run_tests(const std::string& library)
     TESTMSG << "  Running tests for \"QuadTree\" library..." 
             << std::endl;
     run_tests_QuadTree();
+  }
+  else if ( !library.compare("Container") )
+  {
+    TESTMSG << "  Running tests for \"Container\" library..." 
+            << std::endl;
+    run_tests_Container();
   }
   else if ( !library.compare("ParaReader") )
   {
