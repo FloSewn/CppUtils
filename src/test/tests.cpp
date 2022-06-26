@@ -82,6 +82,12 @@ int run_tests(const std::string& library)
             << std::endl;
     run_tests_ParaReader();
   }
+  else if ( !library.compare("VtkIO") )
+  {
+    TESTMSG << "  Running tests for \"VtkIO\" library..." 
+            << std::endl;
+    run_tests_VtkIO();
+  }
   else
   {
     TESTMSG << std::endl;
