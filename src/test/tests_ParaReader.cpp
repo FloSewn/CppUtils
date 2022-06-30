@@ -123,7 +123,7 @@ static void scalar_parameters()
   CHECK( str_param == "Test" );
 
 
-} // scalar_parameters()
+} // scalar_parameters() 
 
 
 /*--------------------------------------------------------------------
@@ -138,14 +138,14 @@ static void list_parameters()
 
   // Create working parameter definitions
   //------------------------------------------------------------------
-  reader.new_list_parameter<int>( 
+  reader.new_matrix_parameter<int>( 
       "para_list_1",  "Parameter list start:", "Parameter list end", 3 );
-  reader.new_list_parameter<double>( 
+  reader.new_vector_parameter<double>( 
       "para_list_2",  "List parameter:", 4 );
 
-  reader.new_list_parameter<int>( 
+  reader.new_matrix_parameter<int>( 
       "invalid_list_1",  "Invalid list start:", "Invalid list end", 3 );
-  reader.new_list_parameter<double>( 
+  reader.new_vector_parameter<double>( 
       "invalid_list_2",  "Invalid list parameter:", 4 );
 
 
@@ -153,7 +153,7 @@ static void list_parameters()
   //------------------------------------------------------------------
   try
   {
-    reader.new_list_parameter<int>( 
+    reader.new_matrix_parameter<int>( 
       "para_list_1",  "Parameter list start:", "Parameter list end:", 3);
     CHECK(false);
   }
@@ -166,7 +166,7 @@ static void list_parameters()
   //------------------------------------------------------------------
   try
   {
-    reader.new_list_parameter<int>( 
+    reader.new_matrix_parameter<int>( 
       "para_list_3",  "", "Parameter list end:", 4 );
     CHECK(false);
   }
@@ -176,7 +176,7 @@ static void list_parameters()
   }
   try
   {
-    reader.new_list_parameter<int>( 
+    reader.new_matrix_parameter<int>( 
       "para_list_4",  "Parameter list start:", "", 4 );
     CHECK(false);
   }
@@ -186,7 +186,7 @@ static void list_parameters()
   }
   try
   {
-    reader.new_list_parameter<int>( 
+    reader.new_vector_parameter<int>( 
       "para_list_5",  "", 5 );
     CHECK(false);
   }
@@ -235,12 +235,53 @@ static void list_parameters()
   }
 
 
-
-} // list_parameters()
-
+} // list_parameters() 
 
 
-} // namespace ParaReaderTests 
+/*--------------------------------------------------------------------
+| Test block parameters
+--------------------------------------------------------------------*/
+static void block_parameters()
+{
+  std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
+  std::string file_name {source_dir + "/aux/ParameterFile.txt"};
+
+  ParaReader reader { file_name };
+
+
+  // Create valid parameter definitions
+  //------------------------------------------------------------------
+  reader.new_block_parameter( 
+      "block_para_1",  "Parameter block start:", "Parameter block end" );
+
+  // Create parameters within block
+  //------------------------------------------------------------------
+  ParaBlock& block_1 = reader.get_parameter( "block_para_1" );
+  block_1.new_scalar_parameter<int>(
+      "int_param",  "Int parameter in block:" );
+
+  // Check that valid parameter succeeds
+  //------------------------------------------------------------------
+  CHECK( reader.query( "block_para_1" ) );
+  CHECK( reader.get_parameter( "block_para_1" ).block_start() > 0 );
+  CHECK( reader.get_parameter( "block_para_1" ).block_end() > 0 );
+  CHECK( reader.get_parameter( "block_para_1" ).block_end() > 
+         reader.get_parameter( "block_para_1" ).block_start()  );
+
+  CHECK( block_1.query<int>("int_param", reader.content()) );
+
+  bool int_param = block_1.get_value<int>("int_param");
+  CHECK( (int_param == 1) );
+  CHECK( block_1.found("int_param") );
+
+
+
+
+} // block_parameters()
+
+
+
+} // namespace ParaReaderTests  
 
 
 /*********************************************************************
@@ -251,5 +292,6 @@ void run_tests_ParaReader()
   ParaReaderTests::constructor();
   ParaReaderTests::scalar_parameters();
   ParaReaderTests::list_parameters();
+  ParaReaderTests::block_parameters();
 
 } // run_tests_ParaReader()

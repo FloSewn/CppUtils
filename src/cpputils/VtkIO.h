@@ -46,22 +46,22 @@ struct VtkIOTypeTraits
 template <>
 struct  VtkIOTypeTraits<int32_t>
 { static const char* name; };
-const char* VtkIOTypeTraits<int32_t>::name = "Int32";
+inline const char* VtkIOTypeTraits<int32_t>::name = "Int32";
 
 template <>
 struct  VtkIOTypeTraits<int64_t>
 { static const char* name; };
-const char* VtkIOTypeTraits<int64_t>::name = "Int64";
+inline const char* VtkIOTypeTraits<int64_t>::name = "Int64";
 
 template <>
 struct  VtkIOTypeTraits<float>
 { static const char* name; };
-const char* VtkIOTypeTraits<float>::name = "Float32";
+inline const char* VtkIOTypeTraits<float>::name = "Float32";
 
 template <>
 struct  VtkIOTypeTraits<double>
 { static const char* name; };
-const char* VtkIOTypeTraits<double>::name = "Float64";
+inline const char* VtkIOTypeTraits<double>::name = "Float64";
 
 
 /*********************************************************************
