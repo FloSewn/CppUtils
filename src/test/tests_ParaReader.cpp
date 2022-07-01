@@ -256,25 +256,50 @@ static void block_parameters()
 
   // Create parameters within block
   //------------------------------------------------------------------
-  ParaBlock& block_1 = reader.get_parameter( "block_para_1" );
+  ParaBlock& block_1 = reader.get_block( "block_para_1" );
   block_1.new_scalar_parameter<int>(
       "int_param",  "Int parameter in block:" );
+  block_1.new_scalar_parameter<std::string>(
+      "str_param", "String parameter in block:");
+  block_1.new_vector_parameter<float>(
+      "vec_param", "List parameter in block:", 4);
+  block_1.new_matrix_parameter<int>( 
+      "mat_param", "Parameter list in block start:", 
+      "Parameter list in block end", 3 );
 
   // Check that valid parameter succeeds
   //------------------------------------------------------------------
   CHECK( reader.query( "block_para_1" ) );
-  CHECK( reader.get_parameter( "block_para_1" ).block_start() > 0 );
-  CHECK( reader.get_parameter( "block_para_1" ).block_end() > 0 );
-  CHECK( reader.get_parameter( "block_para_1" ).block_end() > 
-         reader.get_parameter( "block_para_1" ).block_start()  );
+  CHECK( reader.get_block( "block_para_1" ).block_start() > 0 );
+  CHECK( reader.get_block( "block_para_1" ).block_end() > 0 );
+  CHECK( reader.get_block( "block_para_1" ).block_end() > 
+         reader.get_block( "block_para_1" ).block_start()  );
 
-  CHECK( block_1.query<int>("int_param", reader.content()) );
+  CHECK( block_1.query<int>("int_param") );
+  CHECK( block_1.query<std::string>("str_param") );
+  CHECK( block_1.query<float>("vec_param") );
+  CHECK( block_1.query<int>("mat_param") );
 
-  bool int_param = block_1.get_value<int>("int_param");
-  CHECK( (int_param == 1) );
+
   CHECK( block_1.found("int_param") );
+  int int_param = block_1.get_value<int>("int_param");
+  CHECK( (int_param == 2) );
 
+  CHECK( block_1.found("str_param") );
+  std::string str_param = block_1.get_value<std::string>("str_param");
+  CHECK( (str_param == "Test-2") );
 
+  CHECK( block_1.found("vec_param") );
+  CHECK( EQ(block_1.get_value<float>(0, "vec_param"), 1.0f) );
+  CHECK( EQ(block_1.get_value<float>(1, "vec_param"), 2.0f) );
+  CHECK( EQ(block_1.get_value<float>(2, "vec_param"), 3.0f) );
+  CHECK( EQ(block_1.get_value<float>(3, "vec_param"), 4.0f) );
+
+  CHECK( block_1.found("mat_param") );
+  CHECK( EQ(block_1.get_value<int>(0, 0, "mat_param"), 1) );
+  CHECK( EQ(block_1.get_value<int>(1, 0, "mat_param"), 2) );
+  CHECK( EQ(block_1.get_value<int>(2, 0, "mat_param"), 3) );
+  CHECK( EQ(block_1.get_value<int>(2, 2, "mat_param"), 9) );
 
 
 } // block_parameters()

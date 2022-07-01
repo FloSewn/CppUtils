@@ -26,6 +26,7 @@ using ofstream      = std::ofstream;
 using ifstream      = std::ifstream;
 using strVec        = std::vector<string>;
 using istringstream = std::istringstream;
+using strVec_ptr    = std::shared_ptr<strVec>;
 
 
 /*--------------------------------------------------------------------
@@ -331,14 +332,27 @@ public:
   /*------------------------------------------------------------------
   | Constructor
   ------------------------------------------------------------------*/
-  ParaBlock()
+  ParaBlock(const string& file_path)
   : ParameterBase( ParaType::block )
-  { }
+  { 
+    // Read the file content
+    content_ = read_content( file_path );
+
+    // Set bounds of top ParaBlock
+    block_start( 0 );
+    block_end( content_->size() );
+  }
 
   ParaBlock(const string& start, const string& end,
             size_t block_start, size_t block_end)
   : ParameterBase( ParaType::block, start, end, block_start, block_end )
   { }
+
+
+  /*------------------------------------------------------------------
+  | Setters
+  ------------------------------------------------------------------*/
+  void set_content(strVec_ptr c) { content_ = c; }
 
   /*------------------------------------------------------------------
   | Getters
@@ -361,13 +375,17 @@ public:
     if ( start.size() < 1 || end.size() < 1 )
       error("Empty parameter queries are not allowed. Parameter: " + name);
 
+    ParaBlock* new_b = new ParaBlock { start, end, 
+                                       block_start_, block_end_ };
+
     // Update parameter list
-    para_list_.emplace_back( 
-      new ParaBlock { start, end, block_start_, block_end_ } 
-    );
+    para_list_.emplace_back( new_b );
 
     // Update parameter map
     para_map_[name] = para_list_.size() - 1;
+
+    // Pass content to new block
+    new_b->set_content( content_ );
 
   }
 
@@ -450,14 +468,33 @@ public:
   | Get a parameter reference from a given parameter name
   ------------------------------------------------------------------*/
   template <typename T>
-  T& get_parameter(const string& name)
+  Parameter<T>& get_parameter(const string& name)
   {
     // Handle unknown parameter names
     if ( !para_map_.count(name) )
       error("No parameter with name \"" + name + "\" has been defined.");
 
     // Cast parameter 
-    T* para_ptr = dynamic_cast<T*>(para_list_[ para_map_[name] ].get());
+    Parameter<T>* para_ptr = dynamic_cast<Parameter<T>*>(
+        para_list_[ para_map_[name] ].get()
+    );
+
+    return *para_ptr;
+  }
+
+  /*------------------------------------------------------------------
+  | Get a parameter reference from a given parameter name
+  ------------------------------------------------------------------*/
+  ParaBlock& get_block(const string& name)
+  {
+    // Handle unknown parameter names
+    if ( !para_map_.count(name) )
+      error("No block with name \"" + name + "\" has been defined.");
+
+    // Cast parameter 
+    ParaBlock* para_ptr = dynamic_cast<ParaBlock*>(
+        para_list_[ para_map_[name] ].get()
+    );
 
     return *para_ptr;
   }
@@ -468,7 +505,7 @@ public:
   template <typename T>
   T get_value(const string& name)
   {
-    Parameter<T>& para = get_parameter<Parameter<T>>( name );
+    Parameter<T>& para = get_parameter<T>( name );
 
     // Check if parameter is not found in the input file
     if ( !para.found() )
@@ -483,7 +520,7 @@ public:
   template <typename T>
   T get_value(size_t i, const string& name)
   {
-    Parameter<T>& para = get_parameter<Parameter<T>>( name );
+    Parameter<T>& para = get_parameter<T>( name );
 
     // Check if parameter is not found in the input file
     if ( !para.found() )
@@ -498,7 +535,7 @@ public:
   template <typename T>
   T get_value(size_t i, size_t j, const string& name)
   {
-    Parameter<T>& para = get_parameter<Parameter<T>>( name );
+    Parameter<T>& para = get_parameter<T>( name );
 
     // Check if parameter is not found in the input file
     if ( !para.found() )
@@ -523,22 +560,26 @@ public:
   | Query  parameters
   ------------------------------------------------------------------*/
   template <typename T>
-  bool query(const string& name, const strVec& content)
+  bool query(const string& name)
   {
+    // Account for empty content
+    if (!content_)
+      return false;
+
     // Query actual parameter
-    Parameter<T>& para = get_parameter<Parameter<T>>( name );
+    Parameter<T>& para = get_parameter<T>( name );
 
     if ( para.type() == ParaType::scalar )
     {
-      return query_scalar(para, content);
+      return query_scalar( para, *(content_) );
     }
     else if ( para.type() == ParaType::vector ) 
     {
-      return query_vector(para, content);
+      return query_vector( para, *(content_) );
     }
     else if ( para.type() == ParaType::matrix )
     {
-      return query_matrix(para, content);
+      return query_matrix( para, *(content_) );
     }
 
     return false;
@@ -548,17 +589,22 @@ public:
   /*------------------------------------------------------------------
   | Query the block parameters
   ------------------------------------------------------------------*/
-  bool query(const string& name, const strVec& content)
+  bool query(const string& name)
   {
-    // Query actual parameter
-    ParaBlock& block = get_parameter<ParaBlock>( name );
+    // Account for empty content
+    if (!content_)
+      return false;
 
-    auto start_data = block.get_query_data(block.start_key(), content );
+    // Query actual parameter
+    ParaBlock& block = get_block( name );
+
+    auto start_data = block.get_query_data(block.start_key(), 
+                                           *content_ );
 
     if ( !start_data.found )
       return false;
 
-    auto end_data = block.get_query_data(block.end_key(), content );
+    auto end_data = block.get_query_data(block.end_key(), *content_ );
 
     if ( !end_data.found )
       return false;
@@ -778,12 +824,50 @@ private:
     return num;
   }
 
+  /*------------------------------------------------------------------
+  | Get the content from a text file
+  ------------------------------------------------------------------*/
+  strVec_ptr read_content(const string& file_path)
+  {
+    strVec_ptr content = std::make_shared<strVec>();
+
+    ifstream ifs {file_path};
+    if (!ifs) error("Can't open file: " + file_path);
+
+    // General throw for bad reading of file
+    ifs.exceptions(ifs.exceptions() | std::ios_base::badbit);
+
+    // Read the input file
+    string line;
+    while (std::getline(ifs, line))
+    {
+      // Ignore commented lines
+      string l_cpy = line;
+      l_cpy.erase(std::remove_if(l_cpy.begin(), l_cpy.end(), isspace), 
+                  l_cpy.end());
+      if ( l_cpy[0] == '#' )
+        continue;
+      
+      // Add line to content, if it not a comment line
+      content->push_back(line);
+    }
+
+    if (!ifs.eof()) 
+      error("Failed to read entire file - "
+            "Stopped reading in line " + 
+            std::to_string(content->size()));
+
+    return content;
+  }
+
 
   /*------------------------------------------------------------------
   | Attributes
   ------------------------------------------------------------------*/
   ParameterList   para_list_; 
   ParameterMap    para_map_;
+
+  strVec_ptr      content_;
 
   size_t          line_end_ { 0 };
 
@@ -798,14 +882,14 @@ private:
 
 /*--------------------------------------------------------------------
 | The parameter reader interface 
---------------------------------------------------------------------*/
+--------------------------------------------------------------------*
 class ParaReader
 {
 
 public:
-  /*------------------------------------------------------------------
+  *------------------------------------------------------------------
   | Class for error handling
-  ------------------------------------------------------------------*/
+  ------------------------------------------------------------------*
   class Invalid
   {
   public:
@@ -815,17 +899,17 @@ public:
     string error_message;
   };
 
-  /*------------------------------------------------------------------
+  *------------------------------------------------------------------
   | Function for error handling
-  ------------------------------------------------------------------*/
+  ------------------------------------------------------------------*
   void error(string msg) { throw Invalid{msg}; }
 
-  /*------------------------------------------------------------------
+  *-----------------------------------------------------------------
   | Constructor
   | Read parameter file and store it in the content_ buffer, 
   | such that each line of the file is stored as a separate
   | string in it.
-  ------------------------------------------------------------------*/
+  ------------------------------------------------------------------*
   ParaReader(const string& file_path) 
   : file_path_ { file_path }
   {
@@ -837,14 +921,14 @@ public:
     para_block_.block_end( content_.size() );
   } 
 
-  /*------------------------------------------------------------------
+  *------------------------------------------------------------------
   | Getters
-  ------------------------------------------------------------------*/
+  ------------------------------------------------------------------*
   const strVec& content() const { return content_; }
 
-  /*------------------------------------------------------------------
+  *------------------------------------------------------------------
   | ParaBlock interface to add parameters
-  ------------------------------------------------------------------*/
+  ------------------------------------------------------------------*
   void new_block_parameter(const string& name, 
                             const string& start, const string& end)
   { para_block_.new_block_parameter(name, start, end); }
@@ -864,9 +948,9 @@ public:
                             size_t n)
   { para_block_.new_matrix_parameter<T>(name, start, end, n); }
 
-  /*------------------------------------------------------------------
+  *------------------------------------------------------------------
   | ParaBlock interface to get parameters & values
-  ------------------------------------------------------------------*/
+  ------------------------------------------------------------------*
   template <typename T>
   Parameter<T>& get_parameter(const string& name)
   { return para_block_.get_parameter<Parameter<T>>( name ); }
@@ -886,9 +970,9 @@ public:
   T get_value(size_t i, size_t j, const string& name)
   { return para_block_.get_value<T>( i, j, name ); }
 
-  /*------------------------------------------------------------------
+  *------------------------------------------------------------------
   | Interface to query parameters 
-  ------------------------------------------------------------------*/
+  ------------------------------------------------------------------*
   bool found(const string& name)
   { return para_block_.found( name ); }
   
@@ -903,9 +987,9 @@ public:
 
 
 private:
-  /*------------------------------------------------------------------
+  *------------------------------------------------------------------
   | Get the content from a text file
-  ------------------------------------------------------------------*/
+  ------------------------------------------------------------------*
   strVec get_content(const string& file_path)
   {
     strVec content {};
@@ -942,9 +1026,9 @@ private:
   }
 
 
-  /*------------------------------------------------------------------
+  *------------------------------------------------------------------
   | Attributes
-  ------------------------------------------------------------------*/
+  ------------------------------------------------------------------*
   string          file_path_;
   strVec          content_;
   ParaBlock       para_block_; 
@@ -952,7 +1036,10 @@ private:
 
 
 }; // ParaReader
+*/
 
+
+using ParaReader = ParaBlock;
 
 
 } // namespace CppUtils
