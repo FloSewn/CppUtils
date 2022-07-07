@@ -16,6 +16,7 @@
 #include "MathUtility.h"
 
 #include "ParaReader.h"
+#include "Testing.h"
 
 namespace ParaReaderTests 
 {

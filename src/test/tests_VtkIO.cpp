@@ -12,6 +12,7 @@
 
 #include "tests.h"
 
+#include "Testing.h"
 #include "VtkIO.h"
 
 namespace VtkIOTests 

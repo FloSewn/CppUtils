@@ -12,10 +12,12 @@
 
 #include "StringOps.h"
 #include "MathUtility.h"
+#include "Testing.h"
 
 namespace StringOpsTests 
 {
 
+using namespace CppUtils;
 
 /*--------------------------------------------------------------------
 | Test split()

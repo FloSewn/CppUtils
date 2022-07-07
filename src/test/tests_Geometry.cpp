@@ -11,6 +11,7 @@
 #include "tests.h"
 
 #include "Geometry.h"
+#include "Testing.h"
 
 
 namespace GeometryTests 

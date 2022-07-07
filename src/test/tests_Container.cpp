@@ -12,6 +12,7 @@
 
 #include "Vec2.h"
 #include "Container.h"
+#include "Testing.h"
 
 namespace ContainerTests 
 {

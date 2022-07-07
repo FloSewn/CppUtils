@@ -11,6 +11,7 @@
 #include "tests.h"
 
 #include "Vec2.h"
+#include "Testing.h"
 #include "QuadTree.h"
 
 namespace QuadTreeTests 

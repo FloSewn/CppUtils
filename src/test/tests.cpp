@@ -11,6 +11,7 @@
 
 #include "tests.h"
 #include "Helpers.h"
+#include "Testing.h"
 
 /*********************************************************************
 * Color text
@@ -100,7 +101,8 @@ int run_tests(const std::string& library)
   /*------------------------------------------------------------------
   | Check for failed tests
   ------------------------------------------------------------------*/
-  std::vector<TestData>& test_data = TestDataSingleton::instance();
+  std::vector<CppUtils::TestData>& test_data 
+    = CppUtils::TestDataSingleton::instance();
 
   bool   state = true;
   size_t error_count = 0;

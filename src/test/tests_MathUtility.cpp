@@ -11,6 +11,7 @@
 #include "tests.h"
 
 #include "MathUtility.h"
+#include "Testing.h"
 
 namespace MathUtilityTests 
 {
