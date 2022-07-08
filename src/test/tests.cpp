@@ -89,6 +89,12 @@ int run_tests(const std::string& library)
             << std::endl;
     run_tests_VtkIO();
   }
+  else if ( !library.compare("Log") )
+  {
+    TESTMSG << "  Running tests for \"Log\" library..." 
+            << std::endl;
+    run_tests_Log();
+  }
   else
   {
     TESTMSG << "" << std::endl;
