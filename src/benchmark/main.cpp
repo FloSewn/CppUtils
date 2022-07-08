@@ -22,15 +22,15 @@ int main(int argc, char *argv[])
   
   if ( argc < 2 )
   {
-    MSG << std::endl;
+    MSG << "" << std::endl;
     MSG << "   -------------------------   " << std::endl;
     MSG << "   | CppUtils - Benchmarks |   " << std::endl;
     MSG << "   -------------------------   " << std::endl;
-    MSG << std::endl;
+    MSG << "" << std::endl;
     MSG << "Usage: " << argv[0] << " <library-name-to-benchmark>" 
               << std::endl;
-    MSG << std::endl;
-    MSG << std::endl;
+    MSG << "" << std::endl;
+    MSG << "" << std::endl;
     return EXIT_FAILURE;
   }
 

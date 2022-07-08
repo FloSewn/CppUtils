@@ -54,10 +54,10 @@ int run_benchmarks(const std::string& library)
   }
   else
   {
-    MSG << std::endl;
+    MSG << "" << std::endl;
     MSG << RED "  No library \"" << library 
             << "\" found to benchmark" NC << std::endl;
-    MSG << std::endl;
+    MSG << "" << std::endl;
     return EXIT_FAILURE;
   }
 

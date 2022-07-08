@@ -22,15 +22,15 @@ int main(int argc, char *argv[])
 
   if ( argc < 2 )
   {
-    TESTMSG << std::endl;
+    TESTMSG << "" << std::endl;
     TESTMSG << "   -------------------------   " << std::endl;
     TESTMSG << "   | CppUtils - Test suite |   " << std::endl;
     TESTMSG << "   -------------------------   " << std::endl;
-    TESTMSG << std::endl;
+    TESTMSG << "" << std::endl;
     TESTMSG << "Usage: " << argv[0] << " <library-name-to-test>" 
               << std::endl;
-    TESTMSG << std::endl;
-    TESTMSG << std::endl;
+    TESTMSG << "" << std::endl;
+    TESTMSG << "" << std::endl;
     return EXIT_FAILURE;
   }
 

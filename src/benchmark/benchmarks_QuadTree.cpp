@@ -7,8 +7,11 @@
 */
 #include <iostream>
 #include <cassert>
+#include <fstream>
 
 #include "benchmarks.h"
+
+#include "CppUtilsConfig.h"
 
 #include "Vec2.h"
 #include "QuadTree.h"

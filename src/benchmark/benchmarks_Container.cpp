@@ -159,7 +159,7 @@ void benchmark(size_t n)
   // User output
   CppUtils::SimpleLogger MSG(std::cout, "  ");
 
-  MSG << std::endl;
+  MSG << "" << std::endl;
   MSG << "----------------------------------" << std::endl;
   MSG << "n=" << n << std::endl;
   MSG << "Container vertex insertion          : " 

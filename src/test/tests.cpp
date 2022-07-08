@@ -91,10 +91,10 @@ int run_tests(const std::string& library)
   }
   else
   {
-    TESTMSG << std::endl;
+    TESTMSG << "" << std::endl;
     TESTMSG << RED "  No library \"" << library 
             << "\" found to test" NC << std::endl;
-    TESTMSG << std::endl;
+    TESTMSG << "" << std::endl;
     return EXIT_FAILURE;
   }
 
@@ -134,8 +134,8 @@ int run_tests(const std::string& library)
     TESTMSG << GRN "  --> (" << total_tests-error_count << "/" 
             << total_tests << ") tests succeeded." NC << std::endl;
   }
-  TESTMSG << std::endl;
-  TESTMSG << std::endl;
+  TESTMSG << "" << std::endl;
+  TESTMSG << "" << std::endl;
 
   if (!state)
     return EXIT_FAILURE;
