@@ -14,6 +14,7 @@
 #include "Container.h"
 #include "Timer.h"
 #include "Helpers.h"
+#include "Log.h"
 
 namespace ContainerBenchmarks 
 {
@@ -157,15 +158,13 @@ void benchmark(size_t n)
   timer.count();
 
   // User output
-  CppUtils::SimpleLogger MSG(std::cout, "  ");
-
-  MSG << "" << std::endl;
-  MSG << "----------------------------------" << std::endl;
-  MSG << "n=" << n << std::endl;
-  MSG << "Container vertex insertion          : " 
-      << timer.delta(0) << "s" << std::endl;
-  MSG << "Container vertex removal            : " 
-      << timer.delta(1) << "s" << std::endl;
+  LOG(INFO) << "";
+  LOG(INFO) << "----------------------------------";
+  LOG(INFO) << "n=" << n;
+  LOG(INFO) << "Container vertex insertion          : " 
+            << timer.delta(0) << "s";
+  LOG(INFO) << "Container vertex removal            : " 
+            << timer.delta(1) << "s";
 
 } // benchmark()
 

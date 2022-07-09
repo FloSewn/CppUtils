@@ -10,27 +10,36 @@
 #include <string>
 
 #include "Helpers.h"
+#include "Log.h"
 
 #include "tests.h"
+
+//using CppUtils::LOG_PROPERTIES;
+//using CppUtils::LOG;
+//using CppUtils::LogLevel::INFO;
+
+using namespace CppUtils;
 
 /*********************************************************************
 * Main function
 *********************************************************************/
 int main(int argc, char *argv[])
 {
-  CppUtils::SimpleLogger TESTMSG(std::clog, "  ");
+  LOG_PROPERTIES.set_level( INFO );
+  LOG_PROPERTIES.show_header( true );
+  LOG_PROPERTIES.set_info_header( "  " );
+  LOG_PROPERTIES.set_debug_header( "  " );
 
   if ( argc < 2 )
   {
-    TESTMSG << "" << std::endl;
-    TESTMSG << "   -------------------------   " << std::endl;
-    TESTMSG << "   | CppUtils - Test suite |   " << std::endl;
-    TESTMSG << "   -------------------------   " << std::endl;
-    TESTMSG << "" << std::endl;
-    TESTMSG << "Usage: " << argv[0] << " <library-name-to-test>" 
-              << std::endl;
-    TESTMSG << "" << std::endl;
-    TESTMSG << "" << std::endl;
+    LOG(INFO) << "";
+    LOG(INFO) << "   -------------------------   ";
+    LOG(INFO) << "   | CppUtils - Test suite |   ";
+    LOG(INFO) << "   -------------------------   ";
+    LOG(INFO) << "";
+    LOG(INFO) << "Usage: " << argv[0] << " <library-name-to-test>" ;
+    LOG(INFO) << "";
+    LOG(INFO) << "";
     return EXIT_FAILURE;
   }
 

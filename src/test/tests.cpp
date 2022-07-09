@@ -11,96 +11,85 @@
 
 #include "tests.h"
 #include "Helpers.h"
+#include "Log.h"
 #include "Testing.h"
 
 /*********************************************************************
-* Color text
+* Log utils
 *********************************************************************/
-#define NC "\e[0m"
-#define RED "\e[0;31m"
-#define GRN "\e[0;32m"
-#define CYN "\e[0;36m"
-#define REDB "\e[41m"
+using CppUtils::LOG;
+using CppUtils::LogLevel::INFO;
+using CppUtils::LogColor::GREEN;
+using CppUtils::LogColor::RED;
 
 /*********************************************************************
 * The main test function
 *********************************************************************/
 int run_tests(const std::string& library)
 {
-  CppUtils::SimpleLogger TESTMSG(std::clog, "  ");
-
   /*------------------------------------------------------------------
   | Print header
   ------------------------------------------------------------------*/
-  TESTMSG << "" << std::endl;
-  TESTMSG << "   -------------------------   " << std::endl;
-  TESTMSG << "   | CppUtils - Test suite |   " << std::endl;
-  TESTMSG << "   -------------------------   " << std::endl;
-  TESTMSG << "" << std::endl;
+  LOG(INFO) << "";
+  LOG(INFO) << "   -------------------------   ";
+  LOG(INFO) << "   | CppUtils - Test suite |   ";
+  LOG(INFO) << "   -------------------------   ";
+  LOG(INFO) << "";
 
   /*------------------------------------------------------------------
   | Run all tests
   ------------------------------------------------------------------*/
   if ( !library.compare("MathUtility") )
   {
-    TESTMSG << "  Running tests for \"MathUtility\" library..."
-            << std::endl;
+    LOG(INFO) << "  Running tests for \"MathUtility\" library...";
     run_tests_MathUtility();
   }
   else if ( !library.compare("StringOps") )
   {
-    TESTMSG << "  Running tests for \"StringOps\" library..."
-            << std::endl;
+    LOG(INFO) << "  Running tests for \"StringOps\" library...";
     run_tests_StringOps();
   }
   else if ( !library.compare("Vec2") )
   {
-    TESTMSG << "  Running tests for \"Vec2\" library..."
-            << std::endl;
+    LOG(INFO) << "  Running tests for \"Vec2\" library...";
     run_tests_Vec2();
   }
   else if ( !library.compare("Geometry") )
   {
-    TESTMSG << "  Running tests for \"Geometry\" library..."
-            << std::endl;
+    LOG(INFO) << "  Running tests for \"Geometry\" library...";
     run_tests_Geometry();
   }
   else if ( !library.compare("QuadTree") )
   {
-    TESTMSG << "  Running tests for \"QuadTree\" library..." 
-            << std::endl;
+    LOG(INFO) << "  Running tests for \"QuadTree\" library...";
     run_tests_QuadTree();
   }
   else if ( !library.compare("Container") )
   {
-    TESTMSG << "  Running tests for \"Container\" library..." 
-            << std::endl;
+    LOG(INFO) << "  Running tests for \"Container\" library...";
     run_tests_Container();
   }
   else if ( !library.compare("ParaReader") )
   {
-    TESTMSG << "  Running tests for \"ParaReader\" library..." 
-            << std::endl;
+    LOG(INFO) << "  Running tests for \"ParaReader\" library...";
     run_tests_ParaReader();
   }
   else if ( !library.compare("VtkIO") )
   {
-    TESTMSG << "  Running tests for \"VtkIO\" library..." 
-            << std::endl;
+    LOG(INFO) << "  Running tests for \"VtkIO\" library...";
     run_tests_VtkIO();
   }
   else if ( !library.compare("Log") )
   {
-    TESTMSG << "  Running tests for \"Log\" library..." 
-            << std::endl;
+    LOG(INFO) << "  Running tests for \"Log\" library...";
     run_tests_Log();
   }
   else
   {
-    TESTMSG << "" << std::endl;
-    TESTMSG << RED "  No library \"" << library 
-            << "\" found to test" NC << std::endl;
-    TESTMSG << "" << std::endl;
+    LOG(INFO) << "";
+    LOG(INFO, RED) << "  No library \"" << library 
+                   << "\" found to test";
+    LOG(INFO) << "";
     return EXIT_FAILURE;
   }
 
@@ -119,9 +108,9 @@ int run_tests(const std::string& library)
     if ( !data.state() )
     {
       ++error_count;
-      TESTMSG << RED "[ERROR] Test (" << error_count 
-              << "/" << total_tests << ") failed." NC << std::endl;
-      TESTMSG << "        --> " << data << std::endl;
+      LOG(INFO, RED) << "[ERROR] Test (" << error_count 
+              << "/" << total_tests << ") failed.";
+      LOG(INFO) << "        --> " << data;
     }
     state &= data.state();
   }
@@ -129,19 +118,19 @@ int run_tests(const std::string& library)
   /*------------------------------------------------------------------
   | Succeess / fail
   ------------------------------------------------------------------*/
-  TESTMSG << "" << std::endl;
+  LOG(INFO) << "";
   if (!state)
   {
-    TESTMSG << RED "  --> (" << error_count << "/" 
-            << total_tests << ") tests failed." NC  << std::endl;
+    LOG(INFO, RED) << "  --> (" << error_count << "/" 
+            << total_tests << ") tests failed.";
   }
   else
   {
-    TESTMSG << GRN "  --> (" << total_tests-error_count << "/" 
-            << total_tests << ") tests succeeded." NC << std::endl;
+    LOG(INFO, GREEN) << "  --> (" << total_tests-error_count << "/" 
+            << total_tests << ") tests succeeded.";
   }
-  TESTMSG << "" << std::endl;
-  TESTMSG << "" << std::endl;
+  LOG(INFO) << "";
+  LOG(INFO) << "";
 
   if (!state)
     return EXIT_FAILURE;

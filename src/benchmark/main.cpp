@@ -10,27 +10,33 @@
 #include <string>
 
 #include "Helpers.h"
+#include "Log.h"
 
 #include "benchmarks.h"
+
+using CppUtils::LOG_PROPERTIES;
+using CppUtils::LOG;
+using CppUtils::LogLevel::INFO;
 
 /*********************************************************************
 * Main function
 *********************************************************************/
 int main(int argc, char *argv[])
 {
-  CppUtils::SimpleLogger MSG(std::clog, "  ");
+  LOG_PROPERTIES.set_level( INFO );
+  LOG_PROPERTIES.show_header( true );
+  LOG_PROPERTIES.set_info_header( "  " );
   
   if ( argc < 2 )
   {
-    MSG << "" << std::endl;
-    MSG << "   -------------------------   " << std::endl;
-    MSG << "   | CppUtils - Benchmarks |   " << std::endl;
-    MSG << "   -------------------------   " << std::endl;
-    MSG << "" << std::endl;
-    MSG << "Usage: " << argv[0] << " <library-name-to-benchmark>" 
-              << std::endl;
-    MSG << "" << std::endl;
-    MSG << "" << std::endl;
+    LOG(INFO) << "";
+    LOG(INFO) << "   -------------------------   ";
+    LOG(INFO) << "   | CppUtils - Benchmarks |   ";
+    LOG(INFO) << "   -------------------------   ";
+    LOG(INFO) << "";
+    LOG(INFO) << "Usage: " << argv[0] << " <library-name-to-benchmark>";
+    LOG(INFO) << "";
+    LOG(INFO) << "";
     return EXIT_FAILURE;
   }
 

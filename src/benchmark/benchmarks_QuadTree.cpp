@@ -17,6 +17,7 @@
 #include "QuadTree.h"
 #include "Timer.h"
 #include "Helpers.h"
+#include "Log.h"
 
 namespace QuadTreeBenchmarks 
 {
@@ -258,40 +259,38 @@ void benchmark(int n, int r, size_t imax, size_t dmax,
   timer.count("Finalize");
 
   // User output
-  CppUtils::SimpleLogger MSG(std::cout, "  ");
-
   // User output
-  MSG << "\n----------------------------------" << std::endl;
-  MSG << "n=" << n << ", r=" << r 
-      << ", max. items= " << imax << ", max. depth=" << dmax << std::endl;
-  MSG << std::setprecision(7) << std::fixed 
-      << "dx=" << dx << ", dy=" << dy << std::endl;
-  MSG << "Vertex initialization            : " 
-            << timer.delta(0) << "s" << std::endl;
-  MSG << "QuadTree initialization          : " 
-            << timer.delta(1) << "s" << std::endl;
-  MSG << "QuadTree search                  : " 
-            << timer.delta(2) << "s" << std::endl;
+  LOG(INFO) << "\n----------------------------------";
+  LOG(INFO) << "n=" << n << ", r=" << r 
+      << ", max. items= " << imax << ", max. depth=" << dmax;
+  LOG(INFO) << std::setprecision(7) << std::fixed 
+      << "dx=" << dx << ", dy=" << dy;
+  LOG(INFO) << "Vertex initialization            : " 
+            << timer.delta(0) << "s";
+  LOG(INFO) << "QuadTree initialization          : " 
+            << timer.delta(1) << "s";
+  LOG(INFO) << "QuadTree search                  : " 
+            << timer.delta(2) << "s";
   if (brute_force)
   {
-    MSG << "BruteForce search                : " 
-              << timer.delta(3) << "s" << std::endl;
-    MSG << "QuadTree speedup                 : "
-              << timer.delta(3) / timer.delta(2) << std::endl;
+    LOG(INFO) << "BruteForce search                : " 
+              << timer.delta(3) << "s";
+    LOG(INFO) << "QuadTree speedup                 : "
+              << timer.delta(3) / timer.delta(2);
   }
   if ( r > 0 )
   {
-    MSG << "Data removal                     : "
-              << timer.delta(4) << std::endl;
-    MSG << "QuadTree search after removal    : " 
-              << timer.delta(5) << "s" << std::endl;
+    LOG(INFO) << "Data removal                     : "
+              << timer.delta(4);
+    LOG(INFO) << "QuadTree search after removal    : " 
+              << timer.delta(5) << "s";
   }
   if ( brute_force && r > 0 )
   {
-    MSG << "BruteForce search after removal  : " 
-              << timer.delta(6) << "s" << std::endl;
-    MSG << "QuadTree speedup after removal   : "
-              << timer.delta(6) / timer.delta(5) << std::endl;
+    LOG(INFO) << "BruteForce search after removal  : " 
+              << timer.delta(6) << "s";
+    LOG(INFO) << "QuadTree speedup after removal   : "
+              << timer.delta(6) / timer.delta(5);
   }
 
 
@@ -300,7 +299,8 @@ void benchmark(int n, int r, size_t imax, size_t dmax,
   ------------------------------------------------------------------*/
   if (export_qtree)
   {
-    MSG << "EXPORT QTREE STRUCTURE" << std::endl;
+    LOG(INFO) << "EXPORT QTREE STRUCTURE";
+
     std::cout << "VERTICES " << vertices.size() << std::endl;
     for ( const auto& v_ptr : vertices )
       std::cout << std::setprecision(5) << std::fixed 

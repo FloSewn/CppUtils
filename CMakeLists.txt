@@ -12,8 +12,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # --- Compiler flags ---
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wunused-variable -std=c++17 -O3 -DNDEBUG -fconcepts")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wunused-variable -std=c++17 -O0 -g -fconcepts")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wunused-variable -std=c++17 -O3 -DNDEBUG -fconcepts")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wunused-variable -std=c++17 -O0 -g -fconcepts")
 
 set( BIN ${CMAKE_SOURCE_DIR}/bin )
 
@@ -42,3 +42,4 @@ add_test(NAME QuadTree COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "QuadTree")
 add_test(NAME Container COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "Container")
 add_test(NAME ParaReader COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "ParaReader")
 add_test(NAME VtkIO COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "VtkIO")
+add_test(NAME Log COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "Log")

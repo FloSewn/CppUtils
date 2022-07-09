@@ -15,13 +15,25 @@
 namespace CppUtils {
 
 /*********************************************************************
-* Log levels
+* Log levels, stream types, colors
 *********************************************************************/
 enum LogLevel 
 { ERROR, WARNING, INFO, DEBUG };
 
 enum OStreamType
 { TO_COUT, TO_CERR, TO_CLOG, TO_FILE };
+
+enum LogColor {
+  RED      = 31,
+  GREEN    = 32,
+  YELLOW   = 33,
+  BLUE     = 34,
+  PURPLE   = 35,
+  CYAN     = 36,
+  WHITE    = 37,
+  DEFAULT  = 39,
+};
+
 
 /*********************************************************************
 * Interface to create ostream unique_ptr, which gets properly 
@@ -42,7 +54,7 @@ struct ConditionalDeleter
 
 using OStreamPtr = std::unique_ptr<std::ostream, ConditionalDeleter>;
 
-OStreamPtr create_stream(OStreamType type, const std::string& path="")
+static inline OStreamPtr create_stream(OStreamType type, const std::string& path="")
 {
   switch( type ) {
     case TO_COUT:
@@ -65,6 +77,9 @@ OStreamPtr create_stream(OStreamType type, const std::string& path="")
 class LogProperties
 {
 public:
+  /*------------------------------------------------------------------
+  | Default constructor
+  ------------------------------------------------------------------*/
   LogProperties() 
   {
     error_os_ = create_stream( TO_COUT );
@@ -73,8 +88,14 @@ public:
     debug_os_ = create_stream( TO_COUT );
   }
 
+  /*------------------------------------------------------------------
+  | Setters
+  ------------------------------------------------------------------*/
   void set_level(LogLevel level) { level_ = level; }
   void show_header(bool show) { show_header_ = show; }
+  void use_newline(bool nl) { use_newline_ = nl; }
+  void use_color(bool c) { use_color_ = c; }
+
   void set_error_header(const std::string& msg) { error_header_ = msg; }
   void set_warn_header(const std::string& msg) { warn_header_ = msg; }
   void set_info_header(const std::string& msg) { info_header_ = msg; }
@@ -89,8 +110,13 @@ public:
   void set_debug_ostream(OStreamType type, const std::string& f="")
   { debug_os_ = create_stream( type, f ); }
 
+  /*------------------------------------------------------------------
+  | Getters
+  ------------------------------------------------------------------*/
   const LogLevel& level() const { return level_; }
   bool show_header() const { return show_header_; }
+  bool use_newline() const { return use_newline_; }
+  bool use_color() const { return use_color_; }
 
   const std::string& get_header(LogLevel level) const 
   {
@@ -114,11 +140,37 @@ public:
     return *info_os_;
   }
 
+  std::string get_color(LogLevel level)
+  {
+    std::string base = { "\033[" };
+    switch( level ) {
+      case ERROR:   
+        base += std::to_string( error_col_ ); 
+        break;
+      case WARNING: 
+        base += std::to_string( warn_col_ ); 
+        break;
+      case INFO:    
+        base += std::to_string( info_col_ ); 
+        break;
+      case DEBUG:   
+        base += std::to_string( debug_col_ ); 
+        break;
+      default:      
+        base += std::to_string( LogColor::DEFAULT );
+    }
+    base += "m";
+    return base;
+  }
+
 
 private:
 
   LogLevel    level_         = INFO;
   bool        show_header_   = true;
+  bool        use_newline_   = true;
+  bool        use_color_     = true;
+
   std::string error_header_  = "[ERROR] ";
   std::string warn_header_   = "[WARNING] ";
   std::string info_header_   = "[INFO] ";
@@ -129,9 +181,14 @@ private:
   OStreamPtr info_os_  { nullptr };
   OStreamPtr debug_os_ { nullptr };
 
+  LogColor error_col_  { RED     };
+  LogColor warn_col_   { YELLOW  };
+  LogColor info_col_   { DEFAULT };
+  LogColor debug_col_  { DEFAULT };
+
 };
 
-static inline LogProperties LOG_PROPERTIES;
+inline LogProperties LOG_PROPERTIES;
 
 /*********************************************************************
 * The interface for the actual SimpleLogger
@@ -143,22 +200,64 @@ static inline LogProperties LOG_PROPERTIES;
 class LOG
 {
 public:
+  /*------------------------------------------------------------------
+  | Default constructor
+  ------------------------------------------------------------------*/
   LOG() {}
 
+  /*------------------------------------------------------------------
+  | Constructror with log level specification
+  ------------------------------------------------------------------*/
   LOG(LogLevel level)
   {
     level_ = level;
+
+    if ( LOG_PROPERTIES.use_color() )
+      operator<<( LOG_PROPERTIES.get_color( level_ ) );
+    
     if ( LOG_PROPERTIES.show_header() )
-      operator << ( LOG_PROPERTIES.get_header( level_ ) );
+      operator<<( LOG_PROPERTIES.get_header( level_ ) );
   }
 
+  /*------------------------------------------------------------------
+  | Constructror with log level and color specification
+  ------------------------------------------------------------------*/
+  LOG(LogLevel level, LogColor c)
+  {
+    level_ = level;
+
+    if ( LOG_PROPERTIES.use_color() )
+    {
+      std::string color { "\033[" };
+      color += std::to_string( c ); 
+      color += "m";
+      operator<<( color );
+    }
+    
+    if ( LOG_PROPERTIES.show_header() )
+      operator<<( LOG_PROPERTIES.get_header( level_ ) );
+  }
+
+  /*------------------------------------------------------------------
+  | Destructor -> append new line, if property is set
+  ------------------------------------------------------------------*/
   ~LOG() 
   {
-    if ( opened_ )
+    // Set default color
+    if ( LOG_PROPERTIES.use_color() )
+      operator<< ("\e[0m");
+
+    // Append newline
+    if ( opened_ && LOG_PROPERTIES.use_newline() )
       LOG_PROPERTIES.get_ostream( level_ ) << std::endl;
+
+    // Reset 
     opened_ = false;
   }
 
+  /*------------------------------------------------------------------
+  | OStream operator
+  ------------------------------------------------------------------*/
   template<class T>
   LOG& operator<<(const T& msg)
   {
@@ -171,7 +270,9 @@ public:
   }
 
 private:
-
+  /*------------------------------------------------------------------
+  | Attributes
+  ------------------------------------------------------------------*/
   bool     opened_ = false;
   LogLevel level_  = DEBUG;
 

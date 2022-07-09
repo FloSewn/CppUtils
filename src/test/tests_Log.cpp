@@ -47,6 +47,9 @@ void fiddle()
 
   //LOG_PROPERTIES.get_ostream( DEBUG ) << "TEST";
 
+  LOG_PROPERTIES.set_info_header( "  " );
+  LOG_PROPERTIES.set_debug_header( "  " );
+
 } // fiddle()
 
 
@@ -57,6 +60,6 @@ void fiddle()
 *********************************************************************/
 void run_tests_Log()
 {
-  LogTests::fiddle();
+  //LogTests::fiddle();
 
 } // run_tests_Log()

@@ -11,53 +11,52 @@
 
 #include "benchmarks.h"
 #include "Helpers.h"
+#include "Log.h"
 
 /*********************************************************************
-* Color text
+* Log utils
 *********************************************************************/
-#define NC "\e[0m"
-#define RED "\e[0;31m"
-#define GRN "\e[0;32m"
-#define CYN "\e[0;36m"
-#define REDB "\e[41m"
+using CppUtils::LOG;
+using CppUtils::LogLevel::INFO;
+using CppUtils::LogColor::GREEN;
+using CppUtils::LogColor::RED;
+
+using CppUtils::LOG;
+using CppUtils::LogLevel::INFO;
 
 /*********************************************************************
 * The main benchmark function
 *********************************************************************/
 int run_benchmarks(const std::string& library)
 {
-  CppUtils::SimpleLogger MSG(std::clog, "  ");
-
   /*------------------------------------------------------------------
   | Print header
   ------------------------------------------------------------------*/
-  MSG << "" << std::endl;
-  MSG << "   -------------------------   " << std::endl;
-  MSG << "   | CppUtils - Benchmarks |   " << std::endl;
-  MSG << "   -------------------------   " << std::endl;
-  MSG << "" << std::endl;
+  LOG(INFO) << "";
+  LOG(INFO) << "   -------------------------   ";
+  LOG(INFO) << "   | CppUtils - Benchmarks |   ";
+  LOG(INFO) << "   -------------------------   ";
+  LOG(INFO) << "";
 
   /*------------------------------------------------------------------
   | Run all benchmarks
   ------------------------------------------------------------------*/
   if ( !library.compare("Container") )
   {
-    MSG << "  Running benchmarks for \"Container\" library..." 
-            << std::endl;
+    LOG(INFO) << "  Running benchmarks for \"Container\" library...";
     run_benchmarks_Container();
   }
   else if ( !library.compare("QuadTree") )
   {
-    MSG << "  Running benchmarks for \"QuadTree\" library..." 
-            << std::endl;
+    LOG(INFO) << "  Running benchmarks for \"QuadTree\" library...";
     run_benchmarks_QuadTree();
   }
   else
   {
-    MSG << "" << std::endl;
-    MSG << RED "  No library \"" << library 
-            << "\" found to benchmark" NC << std::endl;
-    MSG << "" << std::endl;
+    LOG(INFO) << "";
+    LOG(INFO, RED) << "  No library \"" << library 
+                   << "\" found to benchmark";
+    LOG(INFO) << "";
     return EXIT_FAILURE;
   }
 
