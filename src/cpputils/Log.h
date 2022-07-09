@@ -102,13 +102,25 @@ public:
   void set_debug_header(const std::string& msg) { debug_header_ = msg; }
 
   void set_error_ostream(OStreamType type, const std::string& f="")
-  { error_os_ = create_stream( type, f ); }
+  { 
+    error_os_      = create_stream( type, f ); 
+    error_os_type_ = type;
+  }
   void set_warn_ostream(OStreamType type, const std::string& f="")
-  { warn_os_ = create_stream( type, f ); }
+  { 
+    warn_os_      = create_stream( type, f ); 
+    warn_os_type_ = type;
+  }
   void set_info_ostream(OStreamType type, const std::string& f="")
-  { info_os_ = create_stream( type, f ); }
+  { 
+    info_os_      = create_stream( type, f ); 
+    info_os_type_ = type;
+  }
   void set_debug_ostream(OStreamType type, const std::string& f="")
-  { debug_os_ = create_stream( type, f ); }
+  { 
+    debug_os_      = create_stream( type, f ); 
+    debug_os_type_ = type;
+  }
 
   /*------------------------------------------------------------------
   | Getters
@@ -138,6 +150,17 @@ public:
       case DEBUG:   return *debug_os_; 
     }
     return *info_os_;
+  }
+
+  OStreamType get_ostream_type(LogLevel level)
+  {
+    switch( level ) {
+      case ERROR:   return error_os_type_; 
+      case WARNING: return warn_os_type_; 
+      case INFO:    return info_os_type_; 
+      case DEBUG:   return debug_os_type_; 
+    }
+    return info_os_type_;
   }
 
   std::string get_color(LogLevel level)
@@ -181,6 +204,11 @@ private:
   OStreamPtr info_os_  { nullptr };
   OStreamPtr debug_os_ { nullptr };
 
+  OStreamType error_os_type_ { TO_COUT };
+  OStreamType warn_os_type_  { TO_COUT };
+  OStreamType info_os_type_  { TO_COUT };
+  OStreamType debug_os_type_ { TO_COUT };
+
   LogColor error_col_  { RED     };
   LogColor warn_col_   { YELLOW  };
   LogColor info_col_   { DEFAULT };
@@ -212,7 +240,8 @@ public:
   {
     level_ = level;
 
-    if ( LOG_PROPERTIES.use_color() )
+    if ( LOG_PROPERTIES.use_color() && 
+         LOG_PROPERTIES.get_ostream_type(level_) != TO_FILE )
       operator<<( LOG_PROPERTIES.get_color( level_ ) );
     
     if ( LOG_PROPERTIES.show_header() )
@@ -226,7 +255,8 @@ public:
   {
     level_ = level;
 
-    if ( LOG_PROPERTIES.use_color() )
+    if ( LOG_PROPERTIES.use_color() && 
+         LOG_PROPERTIES.get_ostream_type(level_) != TO_FILE )
     {
       std::string color { "\033[" };
       color += std::to_string( c ); 
@@ -244,7 +274,8 @@ public:
   ~LOG() 
   {
     // Set default color
-    if ( LOG_PROPERTIES.use_color() )
+    if ( LOG_PROPERTIES.use_color() &&
+         LOG_PROPERTIES.get_ostream_type(level_) != TO_FILE )
       operator<< ("\e[0m");
 
     // Append newline
@@ -277,5 +308,17 @@ private:
   LogLevel level_  = DEBUG;
 
 }; // LOG
+
+/*********************************************************************
+* Additional debug macro
+*********************************************************************/
+#ifndef NDEBUG
+#define DEBUG_LOG(str) \
+  LOG(DEBUG) << str
+#else
+#define DEBUG_LOG(str) \
+  do { } while (false)
+#endif
+
 
 } // namespace CppUtils
