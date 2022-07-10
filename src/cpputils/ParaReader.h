@@ -255,6 +255,12 @@ public:
   size_t columns() const { return ncol_; }
   size_t rows() const { return nrow_; }
 
+  void resize() 
+  { 
+    nrow_ = 1;
+    values_.resize( ncol_ ); 
+  }
+
   /*------------------------------------------------------------------
   | Setters
   ------------------------------------------------------------------*/
@@ -794,6 +800,9 @@ private:
 
     if ( out.size() != para.columns()*n_rows ) 
       return false;
+
+    // Resize the parameter values to initial size 
+    para.resize();
 
     for ( size_t j = 0; j < n_rows; ++j )
     {
