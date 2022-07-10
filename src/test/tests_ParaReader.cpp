@@ -111,7 +111,7 @@ static void scalar_parameters()
   CHECK( (bool_param == true) );
   CHECK( reader.found("bool_param") );
 
-  bool int_param = reader.get_value<int>("int_param");
+  int int_param = reader.get_value<int>("int_param");
   CHECK( (int_param == 1) );
   CHECK( reader.found("int_param") );
 
@@ -122,6 +122,15 @@ static void scalar_parameters()
 
   CHECK( reader.found("str_param") );
   CHECK( str_param == "Test" );
+
+
+  // Check second queries
+  //------------------------------------------------------------------
+  CHECK( reader.query<int>( "int_param" ) );
+  CHECK( reader.found("int_param") );
+  int_param = reader.get_value<int>("int_param");
+  CHECK( (int_param == 2) );
+  CHECK( reader.found("int_param") );
 
 
 } // scalar_parameters() 
@@ -268,7 +277,7 @@ static void block_parameters()
       "mat_param", "Parameter list in block start:", 
       "Parameter list in block end", 3 );
 
-  // Check that valid parameter succeeds
+  // Check that valid parameter of first block succeeds
   //------------------------------------------------------------------
   CHECK( reader.query( "block_para_1" ) );
   CHECK( reader.get_block( "block_para_1" ).block_start() > 0 );
@@ -288,7 +297,7 @@ static void block_parameters()
 
   CHECK( block_1.found("str_param") );
   std::string str_param = block_1.get_value<std::string>("str_param");
-  CHECK( (str_param == "Test-2") );
+  CHECK( (str_param == "Test-1") );
 
   CHECK( block_1.found("vec_param") );
   CHECK( EQ(block_1.get_value<float>(0, "vec_param"), 1.0f) );
@@ -301,6 +310,18 @@ static void block_parameters()
   CHECK( EQ(block_1.get_value<int>(1, 0, "mat_param"), 2) );
   CHECK( EQ(block_1.get_value<int>(2, 0, "mat_param"), 3) );
   CHECK( EQ(block_1.get_value<int>(2, 2, "mat_param"), 9) );
+
+  // Check that valid parameter of second block succeeds
+  //------------------------------------------------------------------
+  std::cout << "\n \n " << std::endl;
+  std::cout << "Query next block \n\n";
+  CHECK( reader.query( "block_para_1" ) );
+
+  CHECK( block_1.query<int>("int_param") );
+  CHECK( block_1.query<std::string>("str_param") );
+
+  str_param = block_1.get_value<std::string>("str_param");
+  CHECK( (str_param == "Test-2") );
 
 
 } // block_parameters()

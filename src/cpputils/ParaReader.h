@@ -360,7 +360,6 @@ public:
   const ParameterList& para_list() const { return para_list_; }
   ParameterList& para_list() { return para_list_; }
 
-
   /*------------------------------------------------------------------
   | Create new block parameter to search for in a file
   ------------------------------------------------------------------*/
@@ -598,6 +597,13 @@ public:
     // Query actual parameter
     ParaBlock& block = get_block( name );
 
+    if ( block.block_end() < content_->size() )
+    {
+      block.block_start( block.block_end() );
+      block.block_end( content_->size() );
+      block.block_index( 0 );
+    }
+  
     auto start_data = block.get_query_data(block.start_key(), 
                                            *content_ );
 
@@ -616,8 +622,9 @@ public:
     // Set starts and ends of all parameters of this block
     for ( auto& para : block.para_list() )
     {
-      para->block_start( start_data.line_index );
-      para->block_end( end_data.line_index );
+      para->block_start( block.block_start() );
+      para->block_end( block.block_end() );
+      para->block_index( 0 );
     }
 
     return true;
