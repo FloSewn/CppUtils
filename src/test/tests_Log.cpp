@@ -26,13 +26,13 @@ using namespace CppUtils;
 void fiddle()
 {
   LOG_PROPERTIES.set_level( DEBUG );
+
   LOG_PROPERTIES.show_header( true );
   LOG_PROPERTIES.set_info_header( "# " );
   LOG_PROPERTIES.set_debug_header( "# " );
 
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
   std::string file_name {source_dir + "/aux/Log_Messages.log"};
-
   LOG_PROPERTIES.set_debug_ostream( TO_FILE, file_name );
 
   LOG(ERROR) << "This is an error message.";
@@ -43,9 +43,7 @@ void fiddle()
 
   LOG(DEBUG) << "This is a debug message.";
 
-  //info_log << "This is a test" << std::endl;
-
-  //LOG_PROPERTIES.get_ostream( DEBUG ) << "TEST";
+  DEBUG_LOG( "ANOTHER DEBUG TEST " << 1 << " WORKS" );
 
   LOG_PROPERTIES.set_info_header( "  " );
   LOG_PROPERTIES.set_debug_header( "  " );
