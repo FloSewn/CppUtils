@@ -43,3 +43,4 @@ add_test(NAME Container COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "Container"
 add_test(NAME ParaReader COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "ParaReader")
 add_test(NAME VtkIO COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "VtkIO")
 add_test(NAME Log COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "Log")
+add_test(NAME Matrix COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "Matrix")

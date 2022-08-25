@@ -1,6 +1,7 @@
 set( TESTS TestCppUtils )
 
 add_executable( ${TESTS}
+  tests_Matrix.cpp
   tests_Log.cpp
   tests_VtkIO.cpp
   tests_ParaReader.cpp
