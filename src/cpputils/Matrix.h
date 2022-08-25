@@ -25,26 +25,26 @@ public:
   /*------------------------------------------------------------------
   | Constructor
   ------------------------------------------------------------------*/
-  Matrix(int w, int h) 
-  : width_ { w }
-  , height_ { h }
-  , data_ (w*h, 0) 
+  Matrix(int r, int c) 
+  : rows_ { r }
+  , cols_ { c }
+  , data_ (r*c, 0) 
   { }
 
-  Matrix(T* data, int w, int h)
-  : width_ { w }
-  , height_ { h }
-  , data_ (w*h, 0) 
+  Matrix(T* data, int r, int c)
+  : rows_ { r }
+  , cols_ { c }
+  , data_ (r*c, 0) 
   {
-    std::copy(&data[0], &data[0] + w*h, const_cast<T*>(data_.data()));
+    std::copy(&data[0], &data[0] + r*c, const_cast<T*>(data_.data()));
   }
 
-  Matrix(T** data, int w, int h)
-  : width_ { w }
-  , height_ { h }
-  , data_ (w*h, 0) 
+  Matrix(T** data, int r, int c)
+  : rows_ { r }
+  , cols_ { c }
+  , data_ (r*c, 0) 
   {
-    std::copy(data[0], data[0] + w*h, const_cast<T*>(data_.data()));
+    std::copy(data[0], data[0] + r*c, const_cast<T*>(data_.data()));
   }
 
   virtual ~Matrix() {}
@@ -53,14 +53,14 @@ public:
   | Copy / Move
   ------------------------------------------------------------------*/
   Matrix(const Matrix& m)
-  : width_ { m.width_ }
-  , height_ { m.height_ }
+  : rows_ { m.rows_ }
+  , cols_ { m.cols_ }
   , data_ { m.data_ }
   { }
 
   Matrix(Matrix&& m)
-  : width_ { m.width_ }
-  , height_ { m.height_ }
+  : rows_ { m.rows_ }
+  , cols_ { m.cols_ }
   , data_ { std::move(m.data_) }
   {}
 
@@ -69,25 +69,25 @@ public:
   ------------------------------------------------------------------*/
   inline Matrix& operator = (const Matrix& m)
   {
-    width_  = m.width_;
-    height_ = m.height_;
+    rows_ = m.rows_;
+    cols_ = m.cols_;
     data_.assign( m.data_.begin(), m.data_.end() );
     return *this;
   }
 
   inline T* operator[](const int i)
-  { return data_.data() + height_*i; }
+  { return data_.data() + i*cols_; }
 
   inline const T* operator [](const int i) const
-  { return data_.data() + height_*i; }
+  { return data_.data() + i*cols_; }
 
   /*------------------------------------------------------------------
   | Swap data 
   ------------------------------------------------------------------*/
   inline Matrix& swap(Matrix& m)
   {
-    width_  = m.width_;
-    height_ = m.height_;
+    rows_ = m.rows_;
+    cols_ = m.cols_;
     data_.swap( m.data_ );
     return *this;
   }
@@ -95,11 +95,11 @@ public:
   /*------------------------------------------------------------------
   | Getters
   ------------------------------------------------------------------*/
-  inline int width() { return width_; }
-  inline int width() const { return width_; }
+  inline int rows() { return rows_; }
+  inline int rows() const { return rows_; }
 
-  inline int height() { return height_; }
-  inline int height() const { return height_; }
+  inline int columns() { return cols_; }
+  inline int columns() const { return cols_; }
 
   inline std::size_t size() { return data_.size(); }
   inline std::size_t size() const { return data_.size(); }
@@ -108,8 +108,8 @@ private:
   /*------------------------------------------------------------------
   | Attributes
   ------------------------------------------------------------------*/
-  int width_  { 0 };
-  int height_ { 0 };
+  int rows_ { 0 };
+  int cols_ { 0 };
 
   std::vector<T, Allocator> data_;
 
