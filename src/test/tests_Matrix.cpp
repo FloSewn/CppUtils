@@ -183,6 +183,57 @@ void elongated()
 
 } // elongated()
 
+/*********************************************************************
+* Test Matrix class
+*********************************************************************/
+void resize()
+{
+  Matrix<int> m;
+
+  CHECK( m.size() == 0 );
+  CHECK( m.rows() == 0 );
+  CHECK( m.columns() == 0 );
+
+  m.resize(4, 2);
+
+  CHECK( m.rows() == 4 );
+  CHECK( m.columns() == 2 );
+
+  // Access matrix
+  m[0][0] = 1;
+  m[0][1] = 2;
+  m[1][0] = 3;
+  m[1][1] = 4;
+  m[2][0] = 5;
+  m[2][1] = 6;
+  m[3][0] = 7;
+  m[3][1] = 8;
+
+  CHECK( m[0][0] == 1 );
+  CHECK( m[0][1] == 2 );
+  CHECK( m[1][0] == 3 );
+  CHECK( m[1][1] == 4 );
+  CHECK( m[2][0] == 5 );
+  CHECK( m[2][1] == 6 );
+  CHECK( m[3][0] == 7 );
+  CHECK( m[3][1] == 8 );
+
+  m.resize(2, 2);
+
+  CHECK( m.rows() == 2 );
+  CHECK( m.columns() == 2 );
+
+  CHECK( m[0][0] == 1 );
+  CHECK( m[0][1] == 2 );
+  CHECK( m[1][0] == 3 );
+  CHECK( m[1][1] == 4 );
+
+
+  // Resize matrix
+
+
+} // resize()
+
 } // namespace MatrixTests
 
 
@@ -193,5 +244,6 @@ void run_tests_Matrix()
 {
   MatrixTests::general();
   MatrixTests::elongated();
+  MatrixTests::resize();
 
 } // run_tests_Matrix()
