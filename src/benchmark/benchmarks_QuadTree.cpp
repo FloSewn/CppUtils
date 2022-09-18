@@ -148,6 +148,20 @@ void benchmark(int n, int r, size_t imax, size_t dmax,
   }
 
   /*------------------------------------------------------------------
+  | Find nearest neighbors via QuadTree
+  ------------------------------------------------------------------*/
+  timer.count("QuadTree nearest neigbhor search");
+
+  for (int i = 0; i < n; ++i)
+  {
+    const double t = t0 + i*dt;
+    fun.eval( t, x, y );
+
+    qtree.get_nearest({x,y});
+  }
+
+
+  /*------------------------------------------------------------------
   | Find objects within rectangle using brute force
   ------------------------------------------------------------------*/
   timer.count("Brute force search");
@@ -174,6 +188,38 @@ void benchmark(int n, int r, size_t imax, size_t dmax,
     // Assert that qtree found all items
     ASSERT( (item_count_qt == item_count_bf),
             "QuadTree::get_items() failed.");
+  }
+
+
+
+  /*------------------------------------------------------------------
+  | Find nearest neighbors via brute force
+  ------------------------------------------------------------------*/
+  timer.count("Brute force nearest neigbhor search");
+
+  if (brute_force)
+  {
+    for (int i = 0; i < n; ++i)
+    {
+      const double t = t0 + i*dt;
+      fun.eval( t, x, y );
+
+      const Vec2d xy {x,y};
+
+      double best_dist = 10.0 * scale;
+      Vertex* winner = nullptr;
+
+      for ( const auto& v_ptr : vertices )
+      {
+        double dist = (xy-v_ptr->xy()).length_squared();
+
+        if (dist < best_dist)
+        {
+          best_dist = dist;
+          winner = v_ptr.get();
+        }
+      }
+    }
   }
 
   /*------------------------------------------------------------------
@@ -271,26 +317,33 @@ void benchmark(int n, int r, size_t imax, size_t dmax,
             << timer.delta(1) << "s";
   LOG(INFO) << "QuadTree search                  : " 
             << timer.delta(2) << "s";
+  LOG(INFO) << "QuadTree nearest search          : " 
+            << timer.delta(3) << "s";
+
   if (brute_force)
   {
     LOG(INFO) << "BruteForce search                : " 
-              << timer.delta(3) << "s";
+              << timer.delta(4) << "s";
+    LOG(INFO) << "BruteForce nearest search        : " 
+              << timer.delta(5) << "s";
     LOG(INFO) << "QuadTree speedup                 : "
-              << timer.delta(3) / timer.delta(2);
+              << timer.delta(4) / timer.delta(2);
+    LOG(INFO) << "QuadTree speedup (nearest)       : "
+              << timer.delta(5) / timer.delta(3);
   }
   if ( r > 0 )
   {
     LOG(INFO) << "Data removal                     : "
-              << timer.delta(4);
+              << timer.delta(6);
     LOG(INFO) << "QuadTree search after removal    : " 
-              << timer.delta(5) << "s";
+              << timer.delta(7) << "s";
   }
   if ( brute_force && r > 0 )
   {
     LOG(INFO) << "BruteForce search after removal  : " 
-              << timer.delta(6) << "s";
+              << timer.delta(8) << "s";
     LOG(INFO) << "QuadTree speedup after removal   : "
-              << timer.delta(6) / timer.delta(5);
+              << timer.delta(8) / timer.delta(7);
   }
 
 

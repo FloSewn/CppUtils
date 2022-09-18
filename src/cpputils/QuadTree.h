@@ -51,6 +51,8 @@ public:
   using Vector = std::vector<T*>;
   using ListIterator = typename List::iterator;
 
+  using NNTuple = std::tuple<double, T*, QuadTree*>;
+
   /*------------------------------------------------------------------ 
   | Constructor
   ------------------------------------------------------------------*/
@@ -127,6 +129,28 @@ public:
   } /* n_leafs() */
 
   /*------------------------------------------------------------------ 
+  | Get the single nearest item to a given query point
+  ------------------------------------------------------------------*/
+  T* get_nearest(const Vec2<V>& query)
+  {
+    NNTuple best { 4.0*halfscale_, nullptr, this };
+
+    best = nearest_search(query, best);
+
+    return std::get<1>(best);
+  }
+
+  /*------------------------------------------------------------------ 
+  | Get the k nearest neighbor items to a given query point
+  | -> To be implemented
+  ------------------------------------------------------------------*/
+  Vector get_nearest_neighbors(const Vec2<V>& query, int k)
+  {
+    return {};
+  }
+
+
+  /*------------------------------------------------------------------ 
   | Get items within bounding box
   ------------------------------------------------------------------*/
   size_t get_items(const Vec2<V>& lowleft, 
@@ -160,7 +184,7 @@ public:
 
     return n_found;
 
-  } /* get_items() */
+  } // get_items()
 
   /*------------------------------------------------------------------ 
   | Get items within circle 
@@ -436,6 +460,53 @@ private:
             "Failed to empty list.");
 
   } /* distribute_items() */
+
+
+  /*------------------------------------------------------------------ 
+  | Get the nearest item to a given query point
+  ------------------------------------------------------------------*/
+  NNTuple nearest_search(const Vec2<V>& query, NNTuple best)
+  {
+    //QuadTree* best_quad = std::get<0>(best);
+    double best_dist    = std::get<0>(best);
+
+    // Exclude if farther away then best distance
+    if ( query.x < lowleft_.x - best_dist || 
+         query.x > upright_.x + best_dist ||
+         query.y < lowleft_.y - best_dist ||
+         query.y > upright_.y + best_dist  )
+      return best;
+
+    if ( split_ )
+    {
+      for ( auto child : children_ )
+      {
+        ASSERT( child, "QuadTree structure is corrupted." );
+        best = child->nearest_search(query, best);
+      }
+    }
+    else
+    {
+      for ( auto item : items_ )
+      {
+        const Vec2<V>& xy = item->xy();
+        double dist = (query - xy).length();
+
+        if ( dist < best_dist )
+        {
+          std::get<0>(best) = dist;
+          std::get<1>(best) = item;
+          std::get<2>(best) = this;
+        }
+      }
+    }
+
+    return best;
+
+  } // nearest_quad()
+  
+
+
 
   /*------------------------------------------------------------------
   | Attributes

@@ -316,6 +316,53 @@ void add_remove()
 
 } // add_remove()
 
+
+/*--------------------------------------------------------------------
+| Test get_nearest()
+--------------------------------------------------------------------*/
+void get_nearest()
+{
+  /*------------------------------------------------------------------
+  | Initialize structure, vertex container and add vertices
+  ------------------------------------------------------------------*/
+  const Vec2d center { 2.0, 2.0 };
+  double scale       { 4.0 };
+  size_t max_item    { 2 };
+  size_t max_depth   { 5 };
+
+  QuadTree<Vertex,double> 
+    quadtree { scale, max_item, max_depth, center };
+
+  // Vertex-container
+  vector<unique_ptr<Vertex>> vertices;
+
+  vertices.push_back( make_unique<Vertex>( 1.0, 1.0 ) );
+  quadtree.add( vertices[0].get() );
+
+  CHECK( (vertices[0].get() == quadtree.get_nearest( {2.1, 2.2} ) ) );
+
+  vertices.push_back( make_unique<Vertex>( 2.5, 0.5 ) );
+  quadtree.add( vertices[1].get() );
+
+  CHECK( ( !quadtree.split() ) );
+
+  vertices.push_back( make_unique<Vertex>( 3.0, 3.0 ) );
+  quadtree.add( vertices[2].get() );
+
+  CHECK( ( quadtree.split() ) );
+
+  vertices.push_back( make_unique<Vertex>( 3.5, 0.5 ) );
+  quadtree.add( vertices[3].get() );
+
+  vertices.push_back( make_unique<Vertex>( 3.5, 1.5 ) );
+  quadtree.add( vertices[4].get() );
+
+  CHECK( (vertices[4].get() == quadtree.get_nearest( {3.5, 2.25} ) ) );
+  CHECK( (vertices[2].get() == quadtree.get_nearest( {1.0, 3.00} ) ) );
+
+} // get_nearest() 
+
+
 } // namespace QuadTreeTests
 
 
@@ -329,5 +376,6 @@ void run_tests_QuadTree()
   QuadTreeTests::remove();
   QuadTreeTests::get_items();
   QuadTreeTests::add_remove();
+  QuadTreeTests::get_nearest();
 
 } // run_tests_QuadTree()
