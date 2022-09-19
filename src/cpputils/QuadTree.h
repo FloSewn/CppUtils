@@ -23,6 +23,21 @@ namespace CppUtils {
 
 
 /*********************************************************************
+* Quadtree query functions
+*********************************************************************/
+template <typename T, typename V>
+static inline bool quadtree_rect_query_fun(T* item, 
+                                           const Vec2<V>& lowleft, 
+                                           const Vec2<V>& upright)
+{ return in_on_rect(item->xy(), lowleft, upright); }
+
+template <typename T, typename V>
+static inline bool quadtree_circ_query_fun(T* item, 
+                                           const Vec2<V>& c, 
+                                           const V r_sqr)
+{ return ( (item->xy() - c).length_squared() < r_sqr ); }
+
+/*********************************************************************
 * This class refers to a quad tree for 2D simplices
 *
 *
@@ -51,12 +66,10 @@ public:
   using Vector = std::vector<T*>;
   using ListIterator = typename List::iterator;
 
-  using NNTuple = std::tuple<double, T*, QuadTree*>;
-
   /*------------------------------------------------------------------ 
   | Constructor
   ------------------------------------------------------------------*/
-  QuadTree(double          scale, 
+  QuadTree(V               scale, 
            size_t          max_item,
            size_t          max_depth, 
            const Vec2<V>&  center={0.0,0.0}, 
@@ -69,7 +82,7 @@ public:
   , depth_      { depth     }
   , parent_     { parent    }
   {  
-    halfscale_ = 0.5 * scale_;
+    halfscale_ = scale_ / 2;
     Vec2<V> hsv  = { halfscale_, halfscale_ };
     lowleft_   = center_ - hsv;
     upright_   = center_ + hsv;
@@ -99,12 +112,22 @@ public:
   bool split() const { return split_; }
   const List& items() const { return items_; }
   const Array& children() const { return children_; }
-  double scale() const { return scale_; }
+  V scale() const { return scale_; }
   size_t max_items() const { return max_item_; }
   size_t max_depth() const { return max_depth_; }
   const Vec2<V>& center() const { return center_; }
   const Vec2<V>& lowleft() const { return lowleft_; }
   const Vec2<V>& upright() const { return upright_; }
+
+  /*------------------------------------------------------------------ 
+  | Query function pointers
+  ------------------------------------------------------------------*/
+  typedef bool (*RectQuery)(T* item, 
+                            const Vec2<V>& lowleft, 
+                            const Vec2<V>& upright);
+  typedef bool (*CircQuery)(T* item, 
+                            const Vec2<V>& center, 
+                            const V radius_squared);
 
   /*------------------------------------------------------------------
   | Return the total number of qtree leafs
@@ -131,13 +154,38 @@ public:
   /*------------------------------------------------------------------ 
   | Get the single nearest item to a given query point
   ------------------------------------------------------------------*/
-  T* get_nearest(const Vec2<V>& query)
+  T* get_nearest(const Vec2<V>& query) const
   {
-    NNTuple best { 4.0*halfscale_, nullptr, this };
+    auto quad = get_leaf(query);
 
-    best = nearest_search(query, best);
+    V min_dist_sqr = 4 * quad->scale() * quad->scale();
+    T* winner  = nullptr;
 
-    return std::get<1>(best);
+    for ( auto item : quad->items() )
+    {
+      const V d_sqr = (item->xy() - query).length_squared();
+      if ( d_sqr < min_dist_sqr ) 
+      {
+        min_dist_sqr = d_sqr;
+        winner = item;
+      }
+    }
+
+    Vector found {};
+    
+    get_items(query, sqrt(min_dist_sqr), found);
+
+    for ( auto item : found )
+    {
+      const V d_sqr = (item->xy() - query).length_squared();
+      if ( d_sqr < min_dist_sqr ) 
+      {
+        min_dist_sqr = d_sqr;
+        winner = item;
+      }
+    }
+
+    return winner;
   }
 
   /*------------------------------------------------------------------ 
@@ -149,13 +197,35 @@ public:
     return {};
   }
 
+  /*------------------------------------------------------------------ 
+  | Get leaf quad that encloses a given query point
+  ------------------------------------------------------------------*/
+  const QuadTree* get_leaf(const Vec2<V>& query) const
+  {
+    if ( !in_on_rect(query, lowleft_, upright_) )
+      return nullptr;
+
+    if ( split_ )
+    {
+      for ( auto child : children_ )
+      {
+        const QuadTree* quad = child->get_leaf(query);
+        if (quad)
+          return quad;
+      }
+    }
+    return this;
+  }
+
+
 
   /*------------------------------------------------------------------ 
   | Get items within bounding box
   ------------------------------------------------------------------*/
   size_t get_items(const Vec2<V>& lowleft, 
                    const Vec2<V>& upright,
-                   Vector& found) const
+                   Vector& found,
+                   RectQuery qfun = &(quadtree_rect_query_fun)) const
   {
     bool overlap = rect_overlap(lowleft_, upright_,  
                                 lowleft,  upright  );
@@ -175,7 +245,7 @@ public:
     else
     {
       for ( auto item : items_ )
-        if ( in_on_rect(item->xy(), lowleft, upright) )
+        if ( qfun(item, lowleft, upright) ) 
         {
           found.push_back( item );
           ++n_found;
@@ -190,10 +260,11 @@ public:
   | Get items within circle 
   ------------------------------------------------------------------*/
   size_t get_items(const Vec2<V>& center, 
-                   const double radius,
-                   Vector& found) const
+                   V radius,
+                   Vector& found,
+                   CircQuery qfun = &(quadtree_circ_query_fun)) const
   {
-    const double radius_scaled = 1.4142 * radius;
+    const V radius_scaled = 1.4142 * radius;
     const Vec2<V> lowleft = center - radius_scaled;
     const Vec2<V> upright = center + radius_scaled;
 
@@ -214,12 +285,11 @@ public:
     }
     else
     {
-      const double radius_squared = radius * radius;
+      const V radius_squared = radius * radius;
 
       for ( auto item : items_ )
       {
-        const Vec2<V> dist = item->xy() - center;
-        if ( dist.length_squared() < radius_squared )
+        if ( qfun(item, center, radius_squared) )
         {
           found.push_back( item );
           ++n_found;
@@ -384,7 +454,7 @@ private:
   { 
     size_t child_depth = depth_ + 1;
 
-    double h = 0.5 * halfscale_;
+    V h = halfscale_ / 2;
 
     // Centroids of children
     Vec2<V> c0 = { center_.x + h,  center_.y + h };
@@ -461,58 +531,11 @@ private:
 
   } /* distribute_items() */
 
-
-  /*------------------------------------------------------------------ 
-  | Get the nearest item to a given query point
-  ------------------------------------------------------------------*/
-  NNTuple nearest_search(const Vec2<V>& query, NNTuple best)
-  {
-    //QuadTree* best_quad = std::get<0>(best);
-    double best_dist    = std::get<0>(best);
-
-    // Exclude if farther away then best distance
-    if ( query.x < lowleft_.x - best_dist || 
-         query.x > upright_.x + best_dist ||
-         query.y < lowleft_.y - best_dist ||
-         query.y > upright_.y + best_dist  )
-      return best;
-
-    if ( split_ )
-    {
-      for ( auto child : children_ )
-      {
-        ASSERT( child, "QuadTree structure is corrupted." );
-        best = child->nearest_search(query, best);
-      }
-    }
-    else
-    {
-      for ( auto item : items_ )
-      {
-        const Vec2<V>& xy = item->xy();
-        double dist = (query - xy).length();
-
-        if ( dist < best_dist )
-        {
-          std::get<0>(best) = dist;
-          std::get<1>(best) = item;
-          std::get<2>(best) = this;
-        }
-      }
-    }
-
-    return best;
-
-  } // nearest_quad()
-  
-
-
-
   /*------------------------------------------------------------------
   | Attributes
   ------------------------------------------------------------------*/
-  double         scale_     { 0.0 };
-  double         halfscale_ { 0.0 };
+  V              scale_     { 0.0 };
+  V              halfscale_ { 0.0 };
   size_t         max_item_  { 0 };
   size_t         max_depth_ { 0 };
 
