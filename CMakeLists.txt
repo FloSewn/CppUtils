@@ -15,7 +15,8 @@ set( BIN ${CMAKE_SOURCE_DIR}/bin )
 
 # Default to Release build type
 if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Release")
+  #set(CMAKE_BUILD_TYPE "Release")
+  set(CMAKE_BUILD_TYPE "Debug")
 endif()
 
 # --- Compiler flags ---

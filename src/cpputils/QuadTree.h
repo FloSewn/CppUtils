@@ -23,7 +23,7 @@ namespace CppUtils {
 
 
 /*********************************************************************
-* Quadtree query functions
+* Default query function for QuadTree item search within rectangle
 *********************************************************************/
 template <typename T, typename V>
 static inline bool quadtree_rect_query_fun(T* item, 
@@ -31,11 +31,31 @@ static inline bool quadtree_rect_query_fun(T* item,
                                            const Vec2<V>& upright)
 { return in_on_rect(item->xy(), lowleft, upright); }
 
+/*********************************************************************
+* Default query function for QuadTree item search within circle
+*********************************************************************/
 template <typename T, typename V>
 static inline bool quadtree_circ_query_fun(T* item, 
                                            const Vec2<V>& c, 
                                            const V r_sqr)
 { return ( (item->xy() - c).length_squared() < r_sqr ); }
+
+/*********************************************************************
+* Default query function for QuadTree nearest neighbor search 
+*********************************************************************/
+template <typename T, typename V>
+static inline bool quadtree_nearest_query_fun(T* item, 
+                                              const Vec2<V>& c, 
+                                              V& min_d_sqr)
+{
+  const V d_sqr = (item->xy() - c).length_squared();
+  if ( d_sqr < min_d_sqr )
+  {
+    min_d_sqr = d_sqr;
+    return true;
+  }
+  return false;
+}
 
 /*********************************************************************
 * This class refers to a quad tree for 2D simplices
@@ -128,6 +148,9 @@ public:
   typedef bool (*CircQuery)(T* item, 
                             const Vec2<V>& center, 
                             const V radius_squared);
+  typedef bool (*NearestQuery)(T* item, 
+                               const Vec2<V>& center, 
+                               V& min_dist_squared);
 
   /*------------------------------------------------------------------
   | Return the total number of qtree leafs
@@ -154,47 +177,27 @@ public:
   /*------------------------------------------------------------------ 
   | Get the single nearest item to a given query point
   ------------------------------------------------------------------*/
-  T* get_nearest(const Vec2<V>& query) const
+  T* get_nearest(const Vec2<V>& query,
+                 NearestQuery qfun = &(quadtree_nearest_query_fun)) const
   {
     auto quad = get_leaf(query);
 
     V min_dist_sqr = 4 * quad->scale() * quad->scale();
-    T* winner  = nullptr;
+    T* winner      = nullptr;
 
     for ( auto item : quad->items() )
-    {
-      const V d_sqr = (item->xy() - query).length_squared();
-      if ( d_sqr < min_dist_sqr ) 
-      {
-        min_dist_sqr = d_sqr;
+      if ( qfun(item, query, min_dist_sqr ) )
         winner = item;
-      }
-    }
 
     Vector found {};
     
-    get_items(query, sqrt(min_dist_sqr), found);
+    get_items(query, 4 * sqrt(min_dist_sqr), found);
 
     for ( auto item : found )
-    {
-      const V d_sqr = (item->xy() - query).length_squared();
-      if ( d_sqr < min_dist_sqr ) 
-      {
-        min_dist_sqr = d_sqr;
+      if ( qfun(item, query, min_dist_sqr ) )
         winner = item;
-      }
-    }
 
     return winner;
-  }
-
-  /*------------------------------------------------------------------ 
-  | Get the k nearest neighbor items to a given query point
-  | -> To be implemented
-  ------------------------------------------------------------------*/
-  Vector get_nearest_neighbors(const Vec2<V>& query, int k)
-  {
-    return {};
   }
 
   /*------------------------------------------------------------------ 

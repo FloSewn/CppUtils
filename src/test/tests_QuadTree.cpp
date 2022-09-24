@@ -18,7 +18,6 @@ namespace QuadTreeTests
 {
 using namespace CppUtils;
 
-
 /*--------------------------------------------------------------------
 | A simple vertex class that is stored in the QuadTree structure
 --------------------------------------------------------------------*/
@@ -28,13 +27,71 @@ class VertexType
 public:
   VertexType(T x, T y) : xy_ {x, y} {}
 
-  const Vec2<T> xy() const { return xy_; }
+  const Vec2<T>& xy() const { return xy_; }
 
 private:
   Vec2<T>                   xy_;
 }; 
 
+/*--------------------------------------------------------------------
+| A simple edge class that is stored in the QuadTree structure
+--------------------------------------------------------------------*/
+template<typename T>
+class EdgeType
+{
+public:
+  EdgeType(VertexType<T>& v1, VertexType<T>& v2)
+  : v1_ { &v1 }
+  , v2_ { &v2 }
+  {
+    xy_ = ( v1.xy() + v2.xy() ) / 2.0;
+  }
+
+  const Vec2<T>& xy() const { return xy_; }
+
+  VertexType<T>& v1() { return *v1_; };
+  const VertexType<T>& v1() const { return *v1_; };
+
+  VertexType<T>& v2() { return *v2_; };
+  const VertexType<T>& v2() const { return *v2_; };
+
+private:
+  VertexType<T>* v1_ { nullptr };
+  VertexType<T>* v2_ { nullptr };
+  Vec2<T>        xy_ { 0, 0 };
+}; 
+
+/*--------------------------------------------------------------------
+| Query function for nearest point to an edge
+--------------------------------------------------------------------*/
+template <typename T, typename V>
+static inline bool nearest_edge_fun(T* edge,
+                                    const Vec2<V>& query,
+                                    V& min_dist_sqr)
+{
+  const VertexType<V>& v1 = edge->v1();
+  const VertexType<V>& v2 = edge->v2();
+
+  const Vec2<V>& xy_1 = v1.xy();
+  const Vec2<V>& xy_2 = v2.xy();
+
+  const V d_sqr = vertex_edge_dist_sqr(query, xy_1, xy_2);
+
+  if (d_sqr < min_dist_sqr)
+  {
+    min_dist_sqr = d_sqr;
+    return true;
+  }
+
+  return false;
+}
+
+
+/*--------------------------------------------------------------------
+| 
+--------------------------------------------------------------------*/
 using Vertex = VertexType<double>;
+using Edge   = EdgeType<double>;
 using std::unique_ptr;
 using std::vector;
 using std::list;
@@ -418,6 +475,79 @@ void get_leaf()
 } // get_leaf()
 
 
+/*--------------------------------------------------------------------
+| Test get_neaerst() for edges
+--------------------------------------------------------------------*/
+void get_nearest_edge()
+{
+  /*------------------------------------------------------------------
+  | Initialize structure, vertex container and add vertices
+  ------------------------------------------------------------------*/
+  const Vec2d center { 4.0, 4.0 };
+  double scale       { 8.0 };
+  size_t max_item    { 2 };
+  size_t max_depth   { 5 };
+
+  QuadTree<Edge,double> 
+    quadtree { scale, max_item, max_depth, center };
+
+  /*------------------------------------------------------------------
+  | Initialize vertices
+  ------------------------------------------------------------------*/
+  vector<unique_ptr<Vertex>> vertices;
+  vertices.push_back( make_unique<Vertex>( 0.5, 0.5 ) ); // 0
+  vertices.push_back( make_unique<Vertex>( 1.5, 1.5 ) ); // 1
+  vertices.push_back( make_unique<Vertex>( 7.0, 5.5 ) ); // 2
+  vertices.push_back( make_unique<Vertex>( 7.0, 6.5 ) ); // 3
+  vertices.push_back( make_unique<Vertex>( 6.0, 2.0 ) ); // 4
+  vertices.push_back( make_unique<Vertex>( 7.0, 1.0 ) ); // 5
+  vertices.push_back( make_unique<Vertex>( 4.5, 4.5 ) ); // 6
+  vertices.push_back( make_unique<Vertex>( 5.5, 5.0 ) ); // 7
+  vertices.push_back( make_unique<Vertex>( 7.5, 4.5 ) ); // 8
+
+  /*------------------------------------------------------------------
+  | Initialize edges
+  ------------------------------------------------------------------*/
+  vector<unique_ptr<Edge>> edges;
+  edges.push_back( make_unique<Edge>( *vertices[0], *vertices[1] ) ); // 0
+  edges.push_back( make_unique<Edge>( *vertices[2], *vertices[3] ) ); // 1
+  edges.push_back( make_unique<Edge>( *vertices[4], *vertices[5] ) ); // 2
+
+  /*------------------------------------------------------------------
+  | Add edges to quadtree
+  ------------------------------------------------------------------*/
+  quadtree.add( edges[0].get() ); 
+  quadtree.add( edges[1].get() ); 
+
+  CHECK( !quadtree.split() );
+  quadtree.add( edges[2].get() ); 
+  CHECK(  quadtree.split() );
+
+
+  Edge* e_nearest = nullptr;
+
+  e_nearest = quadtree.get_nearest( {2.0,1.0}, nearest_edge_fun );
+  CHECK( e_nearest == edges[0].get() );
+
+  e_nearest = quadtree.get_nearest( {1.0,4.5}, nearest_edge_fun );
+  CHECK( e_nearest == edges[0].get() );
+
+
+  /*------------------------------------------------------------------
+  | More edges
+  ------------------------------------------------------------------*/
+  edges.push_back( make_unique<Edge>( *vertices[6], *vertices[7] ) ); // 3
+  edges.push_back( make_unique<Edge>( *vertices[7], *vertices[8] ) ); // 4
+
+  quadtree.add( edges[3].get() ); 
+  quadtree.add( edges[4].get() ); 
+
+  e_nearest = quadtree.get_nearest( {6.0,5.5}, nearest_edge_fun );
+  CHECK( e_nearest == edges[4].get() );
+
+
+} // get_nearest_edge()
+
 } // namespace QuadTreeTests
 
 
@@ -433,5 +563,6 @@ void run_tests_QuadTree()
   QuadTreeTests::add_remove();
   QuadTreeTests::get_nearest();
   QuadTreeTests::get_leaf();
+  QuadTreeTests::get_nearest_edge();
 
 } // run_tests_QuadTree()
