@@ -26,6 +26,8 @@ class BTree;
 * ----------
 * - https://www.cs.yale.edu/homes/aspnes/pinewiki/BTrees.html
 * - https://github.com/solangii/b-plus-tree
+* - Cormen, Leiserson, Rives, Stein - Introduction to Algorithms
+*   3rd edition, pp.484-504
 *
 * Some definitions on B-Trees:
 * ----------------------------
@@ -102,18 +104,21 @@ public:
 
   long unsigned int n_keys() const { return n_keys_; }
 
-
   /*------------------------------------------------------------------ 
   | Access keys
   ------------------------------------------------------------------*/
   T* key(std::size_t i) 
   { 
-    ASSERT( i < n_keys_, "Invalid BTree access.");
+    ASSERT( i < n_keys_, 
+        "BTreeNode: Unable to access key at position " 
+        + std::to_string(i) );
     return keys_[i]; 
   }
   const T* key(std::size_t i) const 
   { 
-    ASSERT( i < n_keys_, "Invalid BTree access.");
+    ASSERT( i < n_keys_, 
+        "BTreeNode: Unable to access key at position " 
+        + std::to_string(i) );
     return keys_[i]; 
   }
 
@@ -122,24 +127,32 @@ public:
   ------------------------------------------------------------------*/
   std::unique_ptr<BTreeNode<T,M>>& child_ptr(std::size_t i) 
   { 
-    ASSERT( i <= n_keys_, "Invalid BTree access.");
+    ASSERT( i <= n_keys_, 
+        "BTreeNode: Unable to access child at position " 
+        + std::to_string(i) );
     return children_[i]; 
   }
 
   const std::unique_ptr<BTreeNode<T,M>>& child_ptr(std::size_t i) const
   { 
-    ASSERT( i <= n_keys_, "Invalid BTree access.");
+    ASSERT( i <= n_keys_, 
+        "BTreeNode: Unable to access child at position " 
+        + std::to_string(i) );
     return children_[i]; 
   }
 
   BTreeNode<T,M>* child(std::size_t i) 
   { 
-    ASSERT( i <= n_keys_, "Invalid BTree access.");
+    ASSERT( i <= n_keys_, 
+        "BTreeNode: Unable to access child at position " 
+        + std::to_string(i) );
     return children_[i].get(); 
   }
   const BTreeNode<T,M>* child(std::size_t i) const 
   { 
-    ASSERT( i <= n_keys_, "Invalid BTree access.");
+    ASSERT( i <= n_keys_, 
+        "BTreeNode: Unable to access child at position " 
+        + std::to_string(i) );
     return children_[i].get(); 
   }
 
@@ -150,8 +163,9 @@ private:
   ------------------------------------------------------------------*/
   void key(std::size_t i, T* k) 
   { 
-    if ( i >= n_keys_ )
-      throw std::runtime_error("Invalid BTree access.");
+    ASSERT( i < n_keys_, 
+        "BTreeNode: Unable to set key at position " 
+        + std::to_string(i) );
     keys_[i] = k;
   }
 
@@ -160,12 +174,11 @@ private:
   ------------------------------------------------------------------*/
   void child(std::size_t i, std::unique_ptr<BTreeNode<T,M>>& c) 
   { 
-    if ( i > n_keys_ )
-      throw std::runtime_error("Invalid BTree access.");
+    ASSERT( i <= n_keys_, 
+        "BTreeNode: Unable to set child at position " 
+        + std::to_string(i) );
     children_[i] = std::move(c);
   }
-
-
 
   /*------------------------------------------------------------------ 
   | Attributes
@@ -232,8 +245,7 @@ public:
     {
       const BTreeNode<T,M>* child = node.child(i);
 
-      if ( !child )
-        throw std::runtime_error(
+      ASSERT(child, 
           "Invalid BTree access. Data structure seems to be broken.");
 
       return search(key, *child);
@@ -273,10 +285,13 @@ public:
       insert_nonfull(*root_, key);
     }
     else
+    {
       insert_nonfull(*root_, key);
+    }
 
   } // insert() */
 
+private:
   /*------------------------------------------------------------------ 
   | Insert a key into a nonfull node
   |
@@ -386,7 +401,7 @@ public:
       if ( node.child(i)->n_keys() == 2*M-1 )
       {
         // Split the node's i-th child in two nodes
-        // -> This inserts a new key to the current node 
+        // -> This inserts the child's median key to the current node 
         //    at position i
         split_child( node, i );
 
@@ -439,6 +454,13 @@ public:
     // Check that the parent node is nonfull
     ASSERT(parent_node.n_keys() != (2*M-1), "Invalid BTree structure");
 
+    // Assert for valid pointers of children
+    for (std::size_t j = 0; j <= i; ++j)
+    {
+      ASSERT(parent_node.child(j) != nullptr, 
+          "INVALID CHILD POINTER AT POSITION " + std::to_string(j) );
+    }
+
     // This is the new node. It gets the keys of the full node,
     // that are greated than the median
     auto new_node = std::make_unique<BTreeNode<T,M>>();
@@ -461,33 +483,83 @@ public:
       for (std::size_t j = 0; j < M; ++j) 
         new_node->child(j, child_node->child_ptr(j+M));
 
-    // Update number of keys 
-    child_node->n_keys_ = M-1;
-
-    // new_node will be placed at parent node's (i+1)-th child,
+    // new_node will be placed at parent node's (i+1)-th child position,
     // so all other children at j > i must be shifted to the right
-    for (std::size_t j = parent_node.n_keys()+1; j > i+1; --j)
+    ++parent_node.n_keys_;
+
+    for (std::size_t j = parent_node.n_keys(); j > i+1; --j)
       parent_node.child(j, parent_node.child_ptr(j-1));
 
-    ++parent_node.n_keys_;
+    // Place new child node
     parent_node.child(i+1, new_node);
 
     // All following keys in parent_node must be shifted to the right
-    for (std::size_t j = parent_node.n_keys()-1; j > i-1; --j)
-      parent_node.keys_[j+1] = parent_node.keys_[j];
+    for (std::size_t j = parent_node.n_keys()-2; j > i-1; --j)
+      parent_node.key(j+1, parent_node.key(j));
 
-    parent_node.keys_[i] = child_node->keys_[M-1];
+    parent_node.key(i, child_node->key(M-1));
+
+    // Update number of keys 
+    child_node->n_keys_ = M-1;
+
+    // Again, assert for valid pointers of children
+    for (std::size_t j = 0; j <= i+1; ++j)
+    {
+      ASSERT(parent_node.child(j) != nullptr, 
+          "INVALID CHILD POINTER AT POSITION " + std::to_string(j) );
+    }
 
   } // split_child()
 
 
-private:
   /*------------------------------------------------------------------ 
   | Attributes
   ------------------------------------------------------------------*/
   std::unique_ptr<BTreeNode<T,M>> root_ {nullptr};
 
 }; // BTree
+
+/*********************************************************************
+* Stream to std::cout
+*********************************************************************/
+template <typename T, long unsigned int M>
+std::ostream& operator<<(std::ostream& os, 
+                         const BTreeNode<T,M>& node)
+{
+  for (std::size_t i = 0; i < node.n_keys(); ++i)
+  {
+    os << *node.key(i);
+
+    if ( i < node.n_keys()-1 )
+      os << " - ";
+  }
+
+  if ( !node.is_leaf() )
+  {
+    os << "\n\n";
+
+    for (std::size_t i = 0; i < node.n_keys()+1; ++i)
+    {
+      const BTreeNode<T,M>& child = *node.child(i);
+      os << child;
+
+      if ( i < node.n_keys() )
+        os << "  |  ";
+    }
+  }
+
+  return os;
+}
+
+
+template <typename T, long unsigned int M>
+std::ostream& operator<<(std::ostream& os, 
+                         const BTree<T,M>& bt)
+{
+  os << bt.root();
+  return os;
+}
+
 
 
 } // CppUtils

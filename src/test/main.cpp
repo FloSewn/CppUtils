@@ -25,7 +25,7 @@ using namespace CppUtils;
 *********************************************************************/
 int main(int argc, char *argv[])
 {
-  LOG_PROPERTIES.set_level( INFO );
+  LOG_PROPERTIES.set_level( DEBUG );
   LOG_PROPERTIES.show_header( true );
   LOG_PROPERTIES.set_info_header( "  " );
   LOG_PROPERTIES.set_debug_header( "  " );

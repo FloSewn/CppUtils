@@ -60,6 +60,7 @@ void insert_nonfull_first_descending()
   found = btree.search(data[0], btree.root());
   CHECK( found->key(0) == &data[0] );
 
+
 } // insert_nonfull_first_descending()
 
 /*--------------------------------------------------------------------
@@ -83,6 +84,7 @@ void insert_nonfull_first_ascending()
   btree.insert( &data[1] );
   found = btree.search(data[1], btree.root());
   CHECK( found->key(1) == &data[1] );
+
 
 } // insert_nonfull_first_ascending()
 
@@ -115,9 +117,6 @@ void insert_nonfull_first_equal()
 --------------------------------------------------------------------*/
 void insert_nonfull_second()
 {
-  DEBUG_LOG("\n-------------------------------------------");
-  DEBUG_LOG(" Test function: insert_nonfull_second() ");
-
   BTree<int,2> btree;
   std::vector<int> data {};
 
@@ -148,11 +147,6 @@ void insert_nonfull_second()
   btree.insert( &data[2] );
   found = btree.search(data[2], btree.root());
   CHECK( found->key(2) == &data[2] );
-
-  DEBUG_LOG("ROOT");
-  for (std::size_t i = 0; i < btree.root().n_keys(); ++i)
-    DEBUG_LOG(*btree.root().key(i));
-
 
   // BTree root should split now
   btree.insert( &data[3] );
@@ -187,26 +181,452 @@ void insert_nonfull_second()
   CHECK( found->key(2) == &data[10] );
 
 
-  /*
-  DEBUG_LOG("ROOT");
-  for (std::size_t i = 0; i < btree.root().n_keys(); ++i)
-    DEBUG_LOG(*btree.root().key(i));
 
-  DEBUG_LOG("CHILD 1");
-  for (std::size_t i = 0; i < btree.root().child(0)->n_keys(); ++i)
-    DEBUG_LOG(*btree.root().child(0)->key(i));
-
-  DEBUG_LOG("CHILD 2");
-  for (std::size_t i = 0; i < btree.root().child(1)->n_keys(); ++i)
-    DEBUG_LOG(*btree.root().child(1)->key(i));
-
-  //DEBUG_LOG("CHILD 3");
-  for (std::size_t i = 0; i < btree.root().child(2)->n_keys(); ++i)
-    DEBUG_LOG(*btree.root().child(2)->key(i));
-  */
+  //std::cout << btree << std::endl;
 
 
 } // insert_nonfull_second()
+
+
+/*--------------------------------------------------------------------
+| Test the BTree insertion
+--------------------------------------------------------------------*/
+void insertion()
+{
+  BTree<int,2> btree;
+  std::vector<int> data {};
+
+  // Vector acts as container - data must be stored prior to insertion
+  // into BTree, since element addresses change when vector needs to
+  // grow!
+  data.push_back(1);
+  data.push_back(2);
+  data.push_back(3);
+  data.push_back(4);
+  data.push_back(5);
+  data.push_back(6);
+  data.push_back(7);
+  data.push_back(8);
+  data.push_back(9);
+
+  // Add 1st value
+  // --------------------------------
+  //
+  //      .-----------.
+  //      | 1 |   |   |
+  //      '-----------'
+  //
+  btree.insert( &data[0] );
+
+  {
+    const auto& root = btree.root();
+    CHECK( root.n_keys() == 1 );
+    CHECK( *root.key(0) == data[0] );
+
+    const BTreeNode<int,2>* found = nullptr;
+    found = btree.search(data[0], root);
+    CHECK( *found->key(0) == data[0] );
+  }
+
+  // Add 2nd value
+  // --------------------------------
+  //
+  //      .-----------.
+  //      | 1 | 2 |   |
+  //      '-----------'
+  //
+  btree.insert( &data[1] );
+
+  {
+    const auto& root = btree.root();
+    CHECK( root.n_keys() == 2 );
+    CHECK( *root.key(0) == data[0] );
+    CHECK( *root.key(1) == data[1] );
+
+    const BTreeNode<int,2>* found = nullptr;
+    found = btree.search(data[1], root);
+    CHECK( *found->key(1) == data[1] );
+
+    found = btree.search(data[0], root);
+    CHECK( *found->key(0) == data[0] );
+  }
+
+  // Add 3rd value
+  // --------------------------------
+  //
+  //      .-----------.
+  //      | 1 | 2 | 3 |
+  //      '-----------'
+  //
+  btree.insert( &data[2] );
+
+  {
+    const auto& root = btree.root();
+    CHECK( root.n_keys() == 3 );
+    CHECK( *root.key(0) == data[0] );
+    CHECK( *root.key(1) == data[1] );
+    CHECK( *root.key(2) == data[2] );
+
+    const BTreeNode<int,2>* found = nullptr;
+    found = btree.search(data[2], root);
+    CHECK( *found->key(2) == data[2] );
+
+    found = btree.search(data[1], root);
+    CHECK( *found->key(1) == data[1] );
+
+    found = btree.search(data[0], root);
+    CHECK( *found->key(0) == data[0] );
+  }
+
+
+  // Add 4th value
+  // --------------------------------
+  // -> Root node will be split in two nodes
+  // -> Median key (2) remains in root
+  // -> Key (1) is placed in first child
+  // -> Keys (3) & (4) is placed in second child
+  //
+  //      .-----------.
+  //      | 2 |   |   |
+  //      '-----------'
+  //      :   :
+  //      :   .-----------.
+  //      :   | 3 | 4 |   |
+  //      :   '-----------'
+  //      :
+  //      .-----------.
+  //      | 1 |   |   |
+  //      '-----------'
+  //
+  //
+  btree.insert( &data[3] );
+
+  {
+    const auto& root = btree.root();
+    CHECK( root.n_keys() == 1 );
+    CHECK( *root.key(0) == data[1] );
+
+    const auto& child_0 = *root.child(0);
+    CHECK( child_0.n_keys() == 1 );
+    CHECK( *child_0.key(0) == data[0] );
+
+    const auto& child_1 = *root.child(1);
+    CHECK( child_1.n_keys() == 2 );
+    CHECK( *child_1.key(0) == data[2] );
+    CHECK( *child_1.key(1) == data[3] );
+
+
+    const BTreeNode<int,2>* found = nullptr;
+    found = btree.search(data[0], root);
+    CHECK( *found->key(0) == data[0] );
+
+    found = btree.search(data[1], root);
+    CHECK( *found->key(0) == data[1] );
+
+    found = btree.search(data[2], root);
+    CHECK( *found->key(0) == data[2] );
+
+    found = btree.search(data[3], root);
+    CHECK( *found->key(1) == data[3] );
+  }
+
+
+  // Add 5th value
+  // --------------------------------
+  //
+  //      .-----------.
+  //      | 2 |   |   |
+  //      '-----------'
+  //      :   :
+  //      :   .-----------.
+  //      :   | 3 | 4 | 5 |
+  //      :   '-----------'
+  //      :
+  //      .-----------.
+  //      | 1 |   |   |
+  //      '-----------'
+  //
+  //
+  btree.insert( &data[4] );
+
+  {
+    const auto& root = btree.root();
+    CHECK( root.n_keys() == 1 );
+    CHECK( *root.key(0) == data[1] );
+
+    const auto& child_0 = *root.child(0);
+    CHECK( child_0.n_keys() == 1 );
+    CHECK( *child_0.key(0) == data[0] );
+
+    const auto& child_1 = *root.child(1);
+    CHECK( child_1.n_keys() == 3 );
+    CHECK( *child_1.key(0) == data[2] );
+    CHECK( *child_1.key(1) == data[3] );
+    CHECK( *child_1.key(2) == data[4] );
+
+
+    const BTreeNode<int,2>* found = nullptr;
+    found = btree.search(data[0], root);
+    CHECK( *found->key(0) == data[0] );
+
+    found = btree.search(data[1], root);
+    CHECK( *found->key(0) == data[1] );
+
+    found = btree.search(data[2], root);
+    CHECK( *found->key(0) == data[2] );
+
+    found = btree.search(data[3], root);
+    CHECK( *found->key(1) == data[3] );
+
+    found = btree.search(data[4], root);
+    CHECK( *found->key(2) == data[4] );
+  }
+
+  // Add 6th value
+  // --------------------------------
+  // -> New child node will be added
+  // -> Median key (4) of full second child is placed into root node
+  // -> Remaining keys (5) and (6) are placed in new child node
+  //
+  //      .-----------.
+  //      | 2 | 4 |   |
+  //      '-----------'
+  //      :   :   : 
+  //      :   :   .-----------.
+  //      :   :   | 5 | 6 |   |
+  //      :   :   '-----------'
+  //      :   :
+  //      :   .-----------.
+  //      :   | 3 |   |   |
+  //      :   '-----------'
+  //      :
+  //      .-----------.
+  //      | 1 |   |   |
+  //      '-----------'
+  //
+  //
+  btree.insert( &data[5] );
+
+  {
+    const auto& root = btree.root();
+    CHECK( root.n_keys() == 2 );
+    CHECK( *root.key(0) == data[1] );
+
+    const auto& child_0 = *root.child(0);
+    CHECK( child_0.n_keys() == 1 );
+    CHECK( *child_0.key(0) == data[0] );
+
+    const auto& child_1 = *root.child(1);
+    CHECK( child_1.n_keys() == 1 );
+    CHECK( *child_1.key(0) == data[2] );
+
+    const auto& child_2 = *root.child(2);
+    CHECK( child_2.n_keys() == 2 );
+    CHECK( *child_2.key(0) == data[4] );
+    CHECK( *child_2.key(1) == data[5] );
+
+
+    const BTreeNode<int,2>* found = nullptr;
+    found = btree.search(data[0], root);
+    CHECK( *found->key(0) == data[0] );
+
+    found = btree.search(data[1], root);
+    CHECK( *found->key(0) == data[1] );
+
+    found = btree.search(data[2], root);
+    CHECK( *found->key(0) == data[2] );
+
+    found = btree.search(data[3], root);
+    CHECK( *found->key(1) == data[3] );
+
+    found = btree.search(data[4], root);
+    CHECK( *found->key(0) == data[4] );
+
+    found = btree.search(data[5], root);
+    CHECK( *found->key(1) == data[5] );
+  }
+
+
+  // Add 7th value
+  // --------------------------------
+  //
+  //      .-----------.
+  //      | 2 | 4 |   |
+  //      '-----------'
+  //      :   :   : 
+  //      :   :   .-----------.
+  //      :   :   | 5 | 6 | 7 |
+  //      :   :   '-----------'
+  //      :   :
+  //      :   .-----------.
+  //      :   | 3 |   |   |
+  //      :   '-----------'
+  //      :
+  //      .-----------.
+  //      | 1 |   |   |
+  //      '-----------'
+  //
+  //
+  btree.insert( &data[6] );
+
+  {
+    const auto& root = btree.root();
+    CHECK( root.n_keys() == 2 );
+    CHECK( *root.key(0) == data[1] );
+
+    const auto& child_0 = *root.child(0);
+    CHECK( child_0.n_keys() == 1 );
+    CHECK( *child_0.key(0) == data[0] );
+
+    const auto& child_1 = *root.child(1);
+    CHECK( child_1.n_keys() == 1 );
+    CHECK( *child_1.key(0) == data[2] );
+
+    const auto& child_2 = *root.child(2);
+    CHECK( child_2.n_keys() == 3 );
+    CHECK( *child_2.key(0) == data[4] );
+    CHECK( *child_2.key(1) == data[5] );
+    CHECK( *child_2.key(2) == data[6] );
+  }
+
+  // Add 8th value
+  // --------------------------------
+  //
+  //      .-----------.
+  //      | 2 | 4 | 6 |
+  //      '-----------'
+  //      :   :   :   :
+  //      :   :   :   .-----------. 
+  //      :   :   :   | 7 | 8 |   |
+  //      :   :   :   '-----------'
+  //      :   :   : 
+  //      :   :   .-----------.
+  //      :   :   | 5 |   |   |
+  //      :   :   '-----------'
+  //      :   :
+  //      :   .-----------.
+  //      :   | 3 |   |   |
+  //      :   '-----------'
+  //      :
+  //      .-----------.
+  //      | 1 |   |   |
+  //      '-----------'
+  //
+  //
+  btree.insert( &data[7] );
+
+  {
+    const auto& root = btree.root();
+    CHECK( root.n_keys() == 3 );
+    CHECK( *root.key(0) == data[1] );
+    CHECK( *root.key(1) == data[3] );
+    CHECK( *root.key(2) == data[5] );
+
+    const auto& child_0 = *root.child(0);
+    CHECK( child_0.n_keys() == 1 );
+    CHECK( *child_0.key(0) == data[0] );
+
+    const auto& child_1 = *root.child(1);
+    CHECK( child_1.n_keys() == 1 );
+    CHECK( *child_1.key(0) == data[2] );
+
+    const auto& child_2 = *root.child(2);
+    CHECK( child_2.n_keys() == 1 );
+    CHECK( *child_2.key(0) == data[4] );
+
+    const auto& child_3 = *root.child(3);
+    CHECK( child_3.n_keys() == 2 );
+    CHECK( *child_3.key(0) == data[6] );
+    CHECK( *child_3.key(1) == data[7] );
+  }
+
+
+  // Add 9th value
+  // --------------------------------
+  // -> root is full and thus splits
+  // -> introduce new root node, which gets median key of old root
+  //
+  //      .-----------.
+  //      | 4 |   |   |
+  //      '-----------'
+  //      :   :
+  //      :   .-----------.
+  //      :   | 6 |   |   |
+  //      :   '-----------'
+  //      :   :   : 
+  //      :   :   .-----------.
+  //      :   :   | 7 | 8 | 9 |
+  //      :   :   '-----------'
+  //      :   .-----------.   
+  //      :   | 5 |   |   |
+  //      :   '-----------'
+  //      :
+  //      .-----------.
+  //      | 2 |   |   |
+  //      '-----------'
+  //      :   : 
+  //      :   .-----------.
+  //      :   | 3 |   |   |
+  //      :   '-----------'
+  //      .-----------.   
+  //      | 1 |   |   |
+  //      '-----------'
+  //
+  //
+  btree.insert( &data[8] );
+
+  {
+    const auto& root = btree.root();
+    CHECK( root.n_keys() == 1 );
+    CHECK( *root.key(0) == data[3] );
+
+    const auto& child_0 = *root.child(0);
+    CHECK( child_0.n_keys() == 1 );
+    CHECK( *child_0.key(0) == data[1] );
+
+    const auto& child_1 = *root.child(1);
+    CHECK( child_1.n_keys() == 1 );
+    CHECK( *child_1.key(0) == data[5] );
+
+    const auto& child_0_0 = *child_0.child(0);
+    CHECK( child_0_0.n_keys() == 1 );
+    CHECK( *child_0_0.key(0) == data[0] );
+
+    const auto& child_0_1 = *child_0.child(1);
+    CHECK( child_0_1.n_keys() == 1 );
+    CHECK( *child_0_1.key(0) == data[2] );
+
+    const auto& child_1_0 = *child_1.child(0);
+    CHECK( child_1_0.n_keys() == 1 );
+    CHECK( *child_1_0.key(0) == data[4] );
+
+    const auto& child_1_1 = *child_1.child(1);
+    CHECK( child_1_1.n_keys() == 3 );
+    CHECK( *child_1_1.key(0) == data[6] );
+    CHECK( *child_1_1.key(1) == data[7] );
+    CHECK( *child_1_1.key(2) == data[8] );
+
+
+    const BTreeNode<int,2>* found = nullptr;
+    found = btree.search(data[6], root);
+    CHECK(  found->n_keys() == 3 );
+    CHECK( *found->key(0) == data[6] );
+    CHECK( *found->key(1) == data[7] );
+    CHECK( *found->key(2) == data[8] );
+
+  }
+
+
+  
+  //LOG(INFO) << "\n\n------- BTree insertion() --------\n";
+  //LOG(INFO) << "\n" << btree;
+
+
+
+
+
+
+} // insertion()
 
 
 } // namespace BTreeTests
@@ -218,6 +638,7 @@ void insert_nonfull_second()
 void run_tests_BTree()
 {
   BTreeTests::constructor();
+  BTreeTests::insertion();
   BTreeTests::insert_nonfull_first_descending();
   BTreeTests::insert_nonfull_first_ascending();
   BTreeTests::insert_nonfull_first_equal();
