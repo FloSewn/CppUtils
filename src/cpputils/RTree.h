@@ -72,10 +72,13 @@ public:
     const Vec2d ll { MAX(a.x, p.x), MAX(a.y, p.y) };
     const Vec2d ur { MIN(b.x, q.x), MIN(b.y, q.y) };
 
-    const double area = (ur.x - ll.x) * (ur.y - ll.y);
-    ASSERT( area > 0, "Invalid RTreeBBox definition." );
-    
-    return area;
+    const double dx = (ur.x - ll.x);
+    const double dy = (ur.y - ll.y);
+
+    if (dx >= 0.0 && dy >= 0.0)
+      return dx*dy;
+
+    return 0.0;
 
   } // intersection_area()
 
@@ -171,6 +174,56 @@ public:
 
   bool is_leaf() const { return is_leaf_; }
   long unsigned int n_entries() const { return n_entries_; }
+
+  /*------------------------------------------------------------------ 
+  | Function used to estimate the tree height
+  ------------------------------------------------------------------*/
+  std::size_t add_height(std::size_t height) const
+  {
+    if ( !is_leaf_ )
+    {
+      ++height;
+      height = (*child(0)).add_height(height);
+    }
+
+    return height;
+  }
+
+  /*------------------------------------------------------------------ 
+  | Print out node data
+  ------------------------------------------------------------------*/
+  std::ostream& print(std::ostream& os,  
+                      std::size_t   level=0, 
+                      std::size_t   index=0,
+                      std::size_t   parent_index=0) const
+  {
+    if ( !is_leaf_ )
+    {
+      for (std::size_t i = 0; i < n_entries_; ++i)
+      {
+        (*child(i)).print(os, level-1, i, index);
+        os << "\n";
+      }
+    }
+
+    os << "Level " << level 
+       << " - Index " << index 
+       << " - Parent " << parent_index
+       << ": ";
+
+    for (std::size_t i = 0; i < n_entries_; ++i)
+    {
+      os << "[" << bbox(i).lowleft() << ", " << bbox(i).upright() << "]";
+      if ( i < n_entries_ - 1 )
+        os << ", ";
+    }
+
+    return os;
+
+  } // print()
+
+
+
 
   /*------------------------------------------------------------------ 
   | Access minimum bounding rectangles
@@ -311,6 +364,19 @@ public:
   const RTreeNode<T,M>& root() const { return *root_; }
 
   /*------------------------------------------------------------------ 
+  | Get the height of the entire tree
+  ------------------------------------------------------------------*/
+  std::size_t height() const 
+  {
+    std::size_t height = 0;
+
+    height = (*root_).add_height(height);
+
+    return height;
+
+  } // height()
+
+  /*------------------------------------------------------------------ 
   | Search the leaf node that contains a given object in the tree
   ------------------------------------------------------------------*/
   const RTreeNode<T,M>* search_node(const T& obj,
@@ -346,6 +412,8 @@ private:
   ------------------------------------------------------------------*/
   void split_child(RTreeNode<T,M>& parent_node, std::size_t i)
   {
+    LOG(DEBUG) << "ENTRY FUNCTION \"split_child()\"";
+
     // Check that parent node is not full
     ASSERT(parent_node.n_entries() != M, "Invalid R-Tree structure.");
 
@@ -357,7 +425,7 @@ private:
 #endif
 
     // This is the child node, whose entries will be splitted 
-    RTreeNode<T,M>& child_node = *parent_node.child(i);
+    RTreeNode<T,M>& child_node = *(parent_node.child(i));
 
     // Check that child node is full
     ASSERT(child_node.n_entries() == M, "Invalid R-Tree structure.");
@@ -365,11 +433,22 @@ private:
     // This is the new node, which will get half of the entries 
     // of "child_node"
     auto new_node = std::make_unique<RTreeNode<T,M>>();
-    new_node->is_leaf_ = child_node.is_leaf_;
+    (*new_node).is_leaf_ = child_node.is_leaf_;
 
     // This array contains the information, which entries of the 
     // child node "child_node" will be added to "new_node"
     std::array<bool,M> add_to_new = quadratic_split( child_node );
+
+#ifndef NDEBUG
+    std::string log_str = "QUADRATIC SPLIT ARRAY: [";
+    for ( std::size_t j = 0; j < M; ++j )
+    {
+      log_str += std::to_string(add_to_new[j]);
+      if ( j < M-1 )
+        log_str += ", ";
+    }
+    LOG(DEBUG) << log_str << "]";
+#endif
 
     // Distribute entries from "child_node" to "new_node"
     for ( std::size_t j = 0; j < M; ++j )
@@ -377,11 +456,11 @@ private:
       if ( !add_to_new[j] )
         continue;
 
-      size_t n = new_node->n_entries_;
-      ++new_node->n_entries_;
-      new_node->object( n, child_node.object(j) );
-      new_node->bbox( n, child_node.bbox(j) );
-      new_node->child( n, child_node.child_ptr(j) );
+      size_t n = (*new_node).n_entries_;
+      ++(*new_node).n_entries_;
+      (*new_node).object( n, child_node.object(j) );
+      (*new_node).bbox( n, child_node.bbox(j) );
+      (*new_node).child( n, child_node.child_ptr(j) );
     }
 
     // Re-distribute remining entries in "child_node"
@@ -401,16 +480,28 @@ private:
       --child_node.n_entries_;
     }
 
-    // Compute bounding box that covers all entries of "new_node"
-    RTreeBBox cover {};
-    for ( std::size_t j = 0; j < new_node->n_entries(); ++j )
-      cover = cover.bounding_box( new_node->bbox(j) );
-
     // Add "new_node" and its bounding boxx to "parent_node"
     size_t n = parent_node.n_entries_;
     ++parent_node.n_entries_;
     parent_node.child( n, new_node );
-    parent_node.bbox( n, cover );
+
+    // Compute the covering bboxes for all entries of "parent node"
+    for (std::size_t j = 0; j < parent_node.n_entries(); ++j)
+    {
+      const RTreeNode<T,M>& child = *parent_node.child(j);
+
+      RTreeBBox cover = child.bbox(0);
+
+      for ( std::size_t k = 1; k < child.n_entries(); ++k )
+        cover = cover.bounding_box( child.bbox(k) );
+
+      parent_node.bbox( j, cover );
+    }
+
+#ifndef NDEBUG
+    LOG(DEBUG) << "CURRENT TREE STRUCTURE: ";
+    LOG(DEBUG) << "\n" << (*this) << "\n";
+#endif
 
   } // split_child()
 
@@ -640,6 +731,8 @@ private:
   ------------------------------------------------------------------*/
   void insert_nonfull(RTreeNode<T,M>& node, T* object)
   {
+    LOG(DEBUG) << "ENTRY FUNCTION \"insert_nonfull()\"";
+
     RTreeBBox& bb_obj = object->bbox();
 
     // Choose an appropriate leaf to insert the object
@@ -654,8 +747,6 @@ private:
       leaf.bbox(i, bb_obj); 
       leaf.object(i, object);
 
-      // Update all BBoxes in the path from root to this leaf, 
-      // so that all of them cover the object's bbox
     }
     // Otherwise, split the leaf in two nodes. This might lead its 
     // parent to overflow, thus leading it to be splitted recursively.
@@ -664,6 +755,24 @@ private:
     // as children.
     else
     {
+      ASSERT( false, "IMPLEMENTATION ERROR");
+    } 
+
+    // Update all BBoxes in the path from root to this leaf, 
+    // so that all of them cover the object's bbox
+    if ( !node.is_leaf() )
+    {
+      for (std::size_t i = 0; i < node.n_entries(); ++i)
+      {
+        const RTreeNode<T,M>& child = *node.child(i);
+
+        RTreeBBox cover = child.bbox(0);
+
+        for ( std::size_t j = 1; j < child.n_entries(); ++j )
+          cover = cover.bounding_box( child.bbox(j) );
+
+        node.bbox( i, cover );
+      }
     }
 
   } // insert_nonfull()
@@ -674,12 +783,16 @@ private:
   RTreeNode<T,M>& choose_leaf_insertion(RTreeNode<T,M>&  node,
                                         const RTreeBBox& object_bbox)
   {
+    LOG(DEBUG) << "ENTRY FUNCTION \"choose_leaf_insertion()\"";
+
     // Choos only leaf nodes
     if ( node.is_leaf() )
       return node;
 
-    double m      = CPPUTILS_MAX;
+    double m = CPPUTILS_MAX;
     std::size_t j = 0;
+
+    double cover_j = node.bbox(j).bounding_box(object_bbox).area();
 
     // Find the child-node that has the least enlargement with the 
     // object's bbox
@@ -691,11 +804,13 @@ private:
       const double c = child_bbox.union_area(object_bbox)
                      - child_bbox.area();
 
+      const double cover_i = node.bbox(i).bounding_box(object_bbox).area();
+
       // Choose the entry, that needs the least enlargement to 
       // include the object's bbox
       // In case of ties, use the entry with the smalles area
       if ( ( c < m ) ||
-           ( EQ(c, m) && child_bbox.area() < node.bbox(j).area() ) )
+           ( EQ(c, m) && cover_i < cover_j ) )
       {
         m = c;
         j = i;
@@ -704,7 +819,7 @@ private:
 
     // In case that the found child is full, split it in two
     // nodes
-    if ( node.child(j)->n_entries() == M )
+    if ( (*node.child(j)).n_entries() == M )
     {
       split_child(node, j);
     }
@@ -720,5 +835,17 @@ private:
 
 }; // RTree
 
+
+/*********************************************************************
+* Stream to std::cout
+*********************************************************************/
+template <typename T, long unsigned int M>
+std::ostream& operator<<(std::ostream& os, 
+                         const RTree<T,M>& tree)
+{
+  std::size_t height = tree.height();
+
+  return tree.root().print(os, height);
+}
 
 } // CppUtils

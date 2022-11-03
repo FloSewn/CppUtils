@@ -153,12 +153,22 @@ void constructor()
   rectangles.push_back( { {0.0,0.0}, {1.0,1.0} } );
   rectangles.push_back( { {2.0,2.0}, {3.0,3.0} } );
   rectangles.push_back( { {4.0,4.0}, {5.0,5.0} } );
+  rectangles.push_back( { {0.5,1.0}, {1.5,2.0} } );
 
   tree.insert( &rectangles[0] );
+  LOG(INFO) << "\n" << tree << "\n\n";
+
   tree.insert( &rectangles[1] );
+  LOG(INFO) << "\n" << tree << "\n\n";
+
   tree.insert( &rectangles[2] );
+  LOG(INFO) << "\n" << tree << "\n\n";
+
+  tree.insert( &rectangles[3] );
+  LOG(INFO) << "\n" << tree << "\n\n";
 
   CHECK( tree.root().n_entries() == 2 );
+
 
 
 
