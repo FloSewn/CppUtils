@@ -195,8 +195,7 @@ private:
 
 
 /*********************************************************************
-* This class defines the interface to an R-tree structure 
-* for 2D simplices
+* This class defines the interface to a B-tree structure 
 *********************************************************************/
 template <typename T, long unsigned int M>
 class BTree
@@ -455,11 +454,13 @@ private:
     ASSERT(parent_node.n_keys() != (2*M-1), "Invalid BTree structure");
 
     // Assert for valid pointers of children
+#ifndef NDEBUG
     for (std::size_t j = 0; j <= i; ++j)
     {
       ASSERT(parent_node.child(j) != nullptr, 
-          "INVALID CHILD POINTER AT POSITION " + std::to_string(j) );
+          "Invalid child pointer at position " + std::to_string(j) );
     }
+#endif
 
     // This is the new node. It gets the keys of the full node,
     // that are greated than the median
@@ -503,11 +504,13 @@ private:
     child_node->n_keys_ = M-1;
 
     // Again, assert for valid pointers of children
+#ifndef NDEBUG
     for (std::size_t j = 0; j <= i+1; ++j)
     {
       ASSERT(parent_node.child(j) != nullptr, 
-          "INVALID CHILD POINTER AT POSITION " + std::to_string(j) );
+          "Invalid child pointer at position " + std::to_string(j) );
     }
+#endif
 
   } // split_child()
 

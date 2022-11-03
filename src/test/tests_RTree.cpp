@@ -118,15 +118,50 @@ using std::make_unique;
 
 
 /*--------------------------------------------------------------------
+| Rectangular class for testing of the RTree
+--------------------------------------------------------------------*/
+class TestRect
+{
+public:
+  TestRect(const Vec2d& ll, const Vec2d& ur)
+  : bbox_ { ll, ur }
+  {
+    xy_ = 0.5 * (ll + ur);
+  }
+
+  Vec2d& xy() { return xy_; }
+  const Vec2d& xy() const { return xy_; }
+
+  RTreeBBox& bbox() { return bbox_; }
+  const RTreeBBox& bbox() const { return bbox_; }
+
+private:
+  RTreeBBox bbox_ {};
+  Vec2d     xy_   {};
+
+}; // TestRect
+
+/*--------------------------------------------------------------------
 | Test constructor
 --------------------------------------------------------------------*/
 void constructor()
 {
+  RTree<TestRect, 2> tree {};
 
-  Vec2d lowleft = {  0.0,  0.0 };
-  Vec2d upright = { 10.0, 10.0 };
+  std::vector<TestRect> rectangles;
 
-  RTree<Vertex,2> rtree { lowleft, upright };
+  rectangles.push_back( { {0.0,0.0}, {1.0,1.0} } );
+  rectangles.push_back( { {2.0,2.0}, {3.0,3.0} } );
+  rectangles.push_back( { {4.0,4.0}, {5.0,5.0} } );
+
+  tree.insert( &rectangles[0] );
+  tree.insert( &rectangles[1] );
+  tree.insert( &rectangles[2] );
+
+  CHECK( tree.root().n_entries() == 2 );
+
+
+
 
 
 } // constructor()
