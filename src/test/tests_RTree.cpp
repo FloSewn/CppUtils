@@ -166,8 +166,8 @@ void constructor()
   tree.insert( &rectangles[2] );
   LOG(INFO) << "\n" << tree << "\n\n";
 
-  //tree.insert( &rectangles[3] );
-  //LOG(INFO) << "\n" << tree << "\n\n";
+  tree.insert( &rectangles[3] );
+  LOG(INFO) << "\n" << tree << "\n\n";
 
   CHECK( tree.root().n_entries() == 2 );
 

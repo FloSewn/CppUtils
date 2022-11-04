@@ -332,6 +332,7 @@ private:
 
 
 
+
   /*------------------------------------------------------------------ 
   | Attributes
   ------------------------------------------------------------------*/
@@ -463,6 +464,7 @@ private:
     // of "child_node"
     auto new_node = std::make_unique<RTreeNode<T,M>>();
     (*new_node).is_leaf_ = child_node.is_leaf_;
+    (*new_node).parent_  = &parent_node;
 
     // This array contains the information, which entries of the 
     // child node "child_node" will be added to "new_node"
@@ -776,6 +778,9 @@ private:
       leaf.bbox(i, bb_obj); 
       leaf.object(i, object);
 
+      // Update all BBoxes in the path from root to this leaf, 
+      // so that all of them cover the object's bbox
+      update_parent_bbox(leaf);
     }
     // Otherwise, split the leaf in two nodes. This might lead its 
     // parent to overflow, thus leading it to be splitted recursively.
@@ -786,23 +791,6 @@ private:
     {
       ASSERT( false, "IMPLEMENTATION ERROR");
     } 
-
-    // Update all BBoxes in the path from root to this leaf, 
-    // so that all of them cover the object's bbox
-    if ( !node.is_leaf() )
-    {
-      for (std::size_t i = 0; i < node.n_entries(); ++i)
-      {
-        const RTreeNode<T,M>& child = *node.child(i);
-
-        RTreeBBox cover = child.bbox(0);
-
-        for ( std::size_t j = 1; j < child.n_entries(); ++j )
-          cover = cover.bounding_box( child.bbox(j) );
-
-        node.bbox( i, cover );
-      }
-    }
 
   } // insert_nonfull()
 
@@ -856,6 +844,38 @@ private:
     return choose_leaf_insertion( *node.child(j), object_bbox );
 
   } // choose_leaf_insertion()
+
+  /*------------------------------------------------------------------ 
+  | Update bounding box
+  ------------------------------------------------------------------*/
+  void update_parent_bbox(RTreeNode<T,M>& node)
+  {
+    // Stop at root node
+    if ( node.parent() == nullptr )
+      return;
+
+    RTreeNode<T,M>& parent_node = (*node.parent());
+
+    ASSERT( !parent_node.is_leaf(),
+        "Invalid data structure of rtree.");
+
+    // Loop over all children of "parent_node", in order to estimate
+    // each bounding box
+    for (std::size_t i = 0; i < parent_node.n_entries(); ++i)
+    {
+      const RTreeNode<T,M>& child = *parent_node.child(i);
+      RTreeBBox cover = child.bbox(0);
+
+      for ( std::size_t j = 1; j < child.n_entries(); ++j )
+        cover = cover.bounding_box( child.bbox(j) );
+
+      parent_node.bbox( i, cover );
+    }
+
+    return update_parent_bbox(parent_node);
+
+  } // update_parent_bbox()
+
 
   /*------------------------------------------------------------------ 
   | Attributes

@@ -97,7 +97,7 @@ class RTree:
         bbox_colors = colors[color_map]
 
         alphas = 1. - levels / float(self.height-1.)
-        bbox_colors[:,-1] = 0.3 + 0.5 * alphas
+        bbox_colors[:,-1] = 0.1 + 0.5 * alphas
 
         linewidths = 0.3 + 0.8 * (1. - alphas)
 
