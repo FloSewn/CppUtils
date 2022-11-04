@@ -32,7 +32,7 @@ void fiddle()
   LOG_PROPERTIES.set_debug_header( "# " );
 
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
-  std::string file_name {source_dir + "/aux/Log_Messages.log"};
+  std::string file_name {source_dir + "/auxiliary/Log_Messages.log"};
   LOG_PROPERTIES.set_debug_ostream( TO_FILE, file_name );
 
   LOG(ERROR) << "This is an error message.";

@@ -10,6 +10,8 @@
 #include <vector>
 #include <cassert>
 
+#include <CppUtilsConfig.h>
+
 #include "tests.h"
 
 #include "Vec2.h"
@@ -164,14 +166,19 @@ void constructor()
   tree.insert( &rectangles[2] );
   LOG(INFO) << "\n" << tree << "\n\n";
 
-  tree.insert( &rectangles[3] );
-  LOG(INFO) << "\n" << tree << "\n\n";
+  //tree.insert( &rectangles[3] );
+  //LOG(INFO) << "\n" << tree << "\n\n";
 
   CHECK( tree.root().n_entries() == 2 );
 
 
 
 
+  std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
+  std::string file_name 
+  { source_dir + "/auxiliary/test_data/RTree.txt" };
+
+  tree.write_to_file( file_name );
 
 
 } // constructor()

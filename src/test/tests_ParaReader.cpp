@@ -30,7 +30,7 @@ using namespace CppUtils;
 static void constructor()
 {
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
-  std::string file_name {source_dir + "/aux/ParameterFile.txt"};
+  std::string file_name {source_dir + "/auxiliary/ParameterFile.txt"};
 
   // Handle invalid input file path
   try 
@@ -55,7 +55,7 @@ static void constructor()
 static void scalar_parameters()
 {
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
-  std::string file_name {source_dir + "/aux/ParameterFile.txt"};
+  std::string file_name {source_dir + "/auxiliary/ParameterFile.txt"};
 
   ParaReader reader { file_name };
 
@@ -142,7 +142,7 @@ static void scalar_parameters()
 static void list_parameters()
 {
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
-  std::string file_name {source_dir + "/aux/ParameterFile.txt"};
+  std::string file_name {source_dir + "/auxiliary/ParameterFile.txt"};
 
   ParaReader reader { file_name };
 
@@ -254,7 +254,7 @@ static void list_parameters()
 static void block_parameters()
 {
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
-  std::string file_name {source_dir + "/aux/ParameterFile.txt"};
+  std::string file_name {source_dir + "/auxiliary/ParameterFile.txt"};
 
   ParaReader reader { file_name };
 

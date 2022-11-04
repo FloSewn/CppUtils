@@ -33,7 +33,7 @@ if (CMAKE_BUILD_TYPE MATCHES "Debug")
 endif()
 
 # Add config file
-configure_file(aux/CppUtilsConfig.h.in ${CMAKE_BINARY_DIR}/CppUtilsConfig.h)
+configure_file(auxiliary/CppUtilsConfig.h.in ${CMAKE_BINARY_DIR}/CppUtilsConfig.h)
 include_directories(${CMAKE_BINARY_DIR})
 
 # Add subdirectories

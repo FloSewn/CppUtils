@@ -26,7 +26,7 @@ using namespace CppUtils;
 void write()
 {
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
-  std::string file_name {source_dir + "/aux/VTU_File.vtu"};
+  std::string file_name {source_dir + "/auxiliary/VTU_File.vtu"};
 
 
   std::vector<double> points {

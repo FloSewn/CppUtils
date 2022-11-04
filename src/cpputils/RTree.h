@@ -206,16 +206,22 @@ public:
       }
     }
 
-    os << "Level " << level 
-       << " - Index " << index 
-       << " - Parent " << parent_index
-       << ": ";
+    os << n_entries_ << ", " 
+       << level << ", " 
+       << index << ", "
+       << parent_index << "\n";
 
     for (std::size_t i = 0; i < n_entries_; ++i)
     {
-      os << "[" << bbox(i).lowleft() << ", " << bbox(i).upright() << "]";
+      const Vec2d& ll = bbox(i).lowleft();
+      const Vec2d& ur = bbox(i).upright();
+
+      os << std::setprecision(5) << std::fixed 
+         << ll.x << ", " << ll.y << ", " 
+         << ur.x << ", " << ur.y;
+
       if ( i < n_entries_ - 1 )
-        os << ", ";
+        os << "\n";
     }
 
     return os;
@@ -404,6 +410,29 @@ public:
     insert_nonfull(*root_, object);
 
   } // insert()
+
+  /*------------------------------------------------------------------ 
+  | Write the R-Tree structure to a text file
+  ------------------------------------------------------------------*/
+  void write_to_file(const std::string& path) const
+  {
+    std::ofstream outfile;
+
+    std::string file_name = path;
+
+    if (file_name.substr(file_name.find_last_of(".") + 1) != "txt")
+      file_name += ".txt";
+
+    outfile.open( file_name );
+
+    outfile << "# Node entries, tree-level, node-index, parent-index\n";
+    outfile << "# x_low, y-low, x-up, y-up\n";
+
+    outfile << (*this);
+
+    outfile.close();
+
+  } // write_to_file()
 
 private:
 
