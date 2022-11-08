@@ -25,6 +25,8 @@ namespace CppUtils {
 template <typename T, long unsigned int M>
 class RTree;
 
+static inline long unsigned RTreeNodeID = 0;
+
 
 /*********************************************************************
 * Minimum bounding rectangle 
@@ -90,7 +92,6 @@ public:
     return area_ + bbox.area() - intersection_area(bbox);
   }
 
-
   /*------------------------------------------------------------------ 
   | Compose an RTreeBBox that includes both this and another BBox
   ------------------------------------------------------------------*/
@@ -105,8 +106,6 @@ public:
     return { {xmin,ymin}, {xmax,ymax} }; 
   }
 
-
-
 private:
 
   Vec2d  lowleft_ { 0.0, 0.0 };
@@ -114,6 +113,18 @@ private:
   double area_    { 0.0 };
 
 }; // RTreeBBox
+
+
+
+/*********************************************************************
+* RTReeBbox Stream to std::cout
+*********************************************************************/
+std::ostream& operator<<(std::ostream& os, 
+                         const RTreeBBox& bb)
+{
+  os << bb.lowleft() << " x " << bb.upright();
+  return os;
+}
 
 
 /*********************************************************************
@@ -150,12 +161,12 @@ public:
 
   using BBoxes   = std::array<RTreeBBox,M>;
   using Children = std::array<std::unique_ptr<RTreeNode<T,M>>,M>;
-  using Objects  = std::array<T*,M>;
+  using Objects  = std::array<const T*,M>;
 
   /*------------------------------------------------------------------ 
   | Constructor
   ------------------------------------------------------------------*/
-  RTreeNode() {}
+  RTreeNode(int id) { id_ = id; }
 
   /*------------------------------------------------------------------ 
   | Getter
@@ -174,44 +185,56 @@ public:
 
   bool is_leaf() const { return is_leaf_; }
   long unsigned int n_entries() const { return n_entries_; }
+  long unsigned int id() const { return id_; }
+
+  /*------------------------------------------------------------------ 
+  | Setter
+  ------------------------------------------------------------------*/
+  void parent(RTreeNode<T,M>& p) { parent_ = &p; }
+  void parent(const RTreeNode<T,M>& p) 
+  { parent_ = const_cast<RTreeNode<T,M>*>(&p); }
+
+  void is_leaf(bool t) { is_leaf_ = t; }
+  void n_entries(long unsigned int n) { n_entries_ = n; }
+  void id(long unsigned int i) { id_ = i; }
 
   /*------------------------------------------------------------------ 
   | Function used to estimate the tree height
   ------------------------------------------------------------------*/
   std::size_t add_height(std::size_t height) const
   {
-    if ( !is_leaf_ )
+    if ( !is_leaf() )
     {
       ++height;
-      height = (*child(0)).add_height(height);
+      height = child(0).add_height(height);
     }
 
     return height;
   }
 
   /*------------------------------------------------------------------ 
-  | Print out node data
+  | Export the node data 
   ------------------------------------------------------------------*/
-  std::ostream& print(std::ostream& os,  
-                      std::size_t   level=0, 
-                      std::size_t   index=0,
-                      std::size_t   parent_index=0) const
+  std::ostream& export_structure(std::ostream& os,  
+                                 std::size_t   level=0, 
+                                 std::size_t   index=0,
+                                 std::size_t   parent_index=0) const
   {
-    if ( !is_leaf_ )
+    if ( !is_leaf() )
     {
-      for (std::size_t i = 0; i < n_entries_; ++i)
+      for (std::size_t i = 0; i < n_entries(); ++i)
       {
-        (*child(i)).print(os, level-1, i, index);
+        child(i).export_structure(os, level-1, i, index);
         os << "\n";
       }
     }
 
-    os << n_entries_ << ", " 
+    os << n_entries() << ", " 
        << level << ", " 
        << index << ", "
        << parent_index << "\n";
 
-    for (std::size_t i = 0; i < n_entries_; ++i)
+    for (std::size_t i = 0; i < n_entries(); ++i)
     {
       const Vec2d& ll = bbox(i).lowleft();
       const Vec2d& ur = bbox(i).upright();
@@ -220,23 +243,51 @@ public:
          << ll.x << ", " << ll.y << ", " 
          << ur.x << ", " << ur.y;
 
-      if ( i < n_entries_ - 1 )
+      if ( i < n_entries() - 1 )
         os << "\n";
     }
 
     return os;
 
+  } // export_structure()
+
+
+  /*------------------------------------------------------------------ 
+  | Print out the tree structure to the command line
+  ------------------------------------------------------------------*/
+  std::ostream& print(std::ostream& os,  
+                      std::size_t level=0) const
+  {
+    for ( std::size_t i = 0; i < n_entries(); ++i )
+    {
+      if ( level > 0 )
+      {
+        for ( std::size_t j = 0; j < level; ++j )
+          os << "   ";
+        os << "|\n";
+        for ( std::size_t j = 0; j < level; ++j )
+          os << "   ";
+      }
+
+      os << "*-[" << id_ << " | " << level 
+         << " - " << i+1 << "/" << n_entries() << "]: ";
+      os << bbox(i) << "\n";
+
+      if ( !is_leaf() )
+        child(i).print(os, level+1);
+    }
+
+    if ( level == 1 )
+      os << "\n";
+
   } // print()
-
-
-
 
   /*------------------------------------------------------------------ 
   | Access minimum bounding rectangles
   ------------------------------------------------------------------*/
   const RTreeBBox& bbox(std::size_t i) const
   { 
-    ASSERT( i < n_entries_, 
+    ASSERT( i < n_entries(), 
         "RTreeNode: Unable to access key at position " 
         + std::to_string(i) );
     return bboxes_[i]; 
@@ -245,27 +296,28 @@ public:
   /*------------------------------------------------------------------ 
   | Access objects
   ------------------------------------------------------------------*/
-  T* object(std::size_t i) 
+  T& object(std::size_t i) 
   { 
-    ASSERT( i < n_entries_, 
+    ASSERT( i < n_entries(), 
         "RTreeNode: Unable to access key at position " 
         + std::to_string(i) );
-    return objects_[i]; 
+    return *(const_cast<T*>(objects_[i])); 
   }
-  const T* object(std::size_t i) const 
+
+  const T& object(std::size_t i) const 
   { 
-    ASSERT( i < n_entries_, 
+    ASSERT( i < n_entries(), 
         "RTreeNode: Unable to access key at position " 
         + std::to_string(i) );
-    return objects_[i]; 
+    return *objects_[i]; 
   }
 
   /*------------------------------------------------------------------ 
-  | Access children
+  | Access children pointers
   ------------------------------------------------------------------*/
   std::unique_ptr<RTreeNode<T,M>>& child_ptr(std::size_t i) 
   { 
-    ASSERT( i < n_entries_, 
+    ASSERT( i < n_entries(), 
         "RTreeNode: Unable to access child at position " 
         + std::to_string(i) );
     return children_[i]; 
@@ -273,36 +325,37 @@ public:
 
   const std::unique_ptr<RTreeNode<T,M>>& child_ptr(std::size_t i) const
   { 
-    ASSERT( i < n_entries_, 
+    ASSERT( i < n_entries(), 
         "RTreeNode: Unable to access child at position " 
         + std::to_string(i) );
     return children_[i]; 
   }
 
-  RTreeNode<T,M>* child(std::size_t i) 
+  /*------------------------------------------------------------------ 
+  | Access children as references
+  ------------------------------------------------------------------*/
+  RTreeNode<T,M>& child(std::size_t i) 
   { 
-    ASSERT( i < n_entries_, 
+    ASSERT( i < n_entries(), 
         "RTreeNode: Unable to access child at position " 
         + std::to_string(i) );
-    return children_[i].get(); 
+    return *children_[i].get(); 
   }
-  const RTreeNode<T,M>* child(std::size_t i) const 
+
+  const RTreeNode<T,M>& child(std::size_t i) const 
   { 
-    ASSERT( i < n_entries_, 
+    ASSERT( i < n_entries(), 
         "RTreeNode: Unable to access child at position " 
         + std::to_string(i) );
-    return children_[i].get(); 
+    return *children_[i].get(); 
   }
-
-
-private:
 
   /*------------------------------------------------------------------ 
   | Set bbox
   ------------------------------------------------------------------*/
   void bbox(std::size_t i, const RTreeBBox& b) 
   { 
-    ASSERT( i < n_entries_, 
+    ASSERT( i < n_entries(), 
         "RTreeNode: Unable to access key at position " 
         + std::to_string(i) );
     bboxes_[i] = b; 
@@ -311,12 +364,12 @@ private:
   /*------------------------------------------------------------------ 
   | Set objects
   ------------------------------------------------------------------*/
-  void object(std::size_t i, T* obj)
+  void object(std::size_t i, const T& obj)
   { 
-    ASSERT( i < n_entries_, 
+    ASSERT( i < n_entries(), 
         "RTreeNode: Unable to set object at position " 
         + std::to_string(i) );
-    objects_[i] = obj;
+    objects_[i] = &obj;
   }
 
   /*------------------------------------------------------------------ 
@@ -324,14 +377,29 @@ private:
   ------------------------------------------------------------------*/
   void child(std::size_t i, std::unique_ptr<RTreeNode<T,M>>& c)
   { 
-    ASSERT( i < n_entries_, 
+    ASSERT( i < n_entries(), 
         "RTreeNode: Unable to set child at position " 
         + std::to_string(i) );
     children_[i] = std::move(c);
   }
 
+  /*------------------------------------------------------------------ 
+  | Add new object to the node
+  ------------------------------------------------------------------*/
+  void add_object(const T& object)
+  {
+    std::size_t i = this->n_entries();
+    ASSERT( i <= M, "RTreeNode: Can not add more than " 
+        + std::to_string(M) + " objects.");
+
+    this->n_entries( i + 1 );
+    this->bbox(i, object.bbox()); 
+    this->object(i, object);
+
+  } // add_object()
 
 
+private:
 
   /*------------------------------------------------------------------ 
   | Attributes
@@ -343,6 +411,7 @@ private:
 
   bool              is_leaf_   { true };
   long unsigned int n_entries_ { 0 };
+  long unsigned int id_        { 0 };
 
 }; // RTreeNode
 
@@ -361,7 +430,7 @@ public:
   ------------------------------------------------------------------*/
   RTree()
   {
-    root_ = std::make_unique<RTreeNode<T,M>>();
+    root_ = std::make_unique<RTreeNode<T,M>>(RTreeNodeID++);
   }
 
   /*------------------------------------------------------------------ 
@@ -394,23 +463,24 @@ public:
   /*------------------------------------------------------------------ 
   | Insert a new object into the RTree structure
   ------------------------------------------------------------------*/
-  void insert(T* object)
+  void insert(const T& object)
   {
     // Handle the case where the root node is full
     if ( root_->n_entries() == M )
     {
-      auto new_root = std::make_unique<RTreeNode<T,M>>();
-      new_root->is_leaf_   = false;
-      new_root->n_entries_ = 1;
-      new_root->child(0, root_);
-      root_ = std::move(new_root);
-
+      add_root_node();
       split_child(*root_, 0);
     }
      
     insert_nonfull(*root_, object);
 
   } // insert()
+
+  /*------------------------------------------------------------------ 
+  | Print out the r-tree structure to the command line
+  ------------------------------------------------------------------*/
+  std::ostream& print(std::ostream& os)
+  { (*root_).print(os); }
 
   /*------------------------------------------------------------------ 
   | Write the R-Tree structure to a text file
@@ -442,44 +512,31 @@ private:
   ------------------------------------------------------------------*/
   void split_child(RTreeNode<T,M>& parent_node, std::size_t i)
   {
-    LOG(DEBUG) << "ENTRY FUNCTION \"split_child()\"";
-
     // Check that parent node is not full
     ASSERT(parent_node.n_entries() != M, "Invalid R-Tree structure.");
 
     // Check for valid child pointers
 #ifndef NDEBUG
     for (std::size_t j = 0; j <= i; ++j)
-      ASSERT(parent_node.child(j) != nullptr,
+      ASSERT(&parent_node.child(j) != nullptr,
           "Invalid child pointer at position " + std::to_string(j));
 #endif
 
     // This is the child node, whose entries will be splitted 
-    RTreeNode<T,M>& child_node = *(parent_node.child(i));
+    RTreeNode<T,M>& child_node = parent_node.child(i);
 
     // Check that child node is full
     ASSERT(child_node.n_entries() == M, "Invalid R-Tree structure.");
 
     // This is the new node, which will get half of the entries 
     // of "child_node"
-    auto new_node = std::make_unique<RTreeNode<T,M>>();
-    (*new_node).is_leaf_ = child_node.is_leaf_;
-    (*new_node).parent_  = &parent_node;
+    auto new_node = std::make_unique<RTreeNode<T,M>>(RTreeNodeID++);
+    (*new_node).is_leaf( child_node.is_leaf() );
+    (*new_node).parent( parent_node );
 
     // This array contains the information, which entries of the 
     // child node "child_node" will be added to "new_node"
     std::array<bool,M> add_to_new = quadratic_split( child_node );
-
-#ifndef NDEBUG
-    std::string log_str = "QUADRATIC SPLIT ARRAY: [";
-    for ( std::size_t j = 0; j < M; ++j )
-    {
-      log_str += std::to_string(add_to_new[j]);
-      if ( j < M-1 )
-        log_str += ", ";
-    }
-    LOG(DEBUG) << log_str << "]";
-#endif
 
     // Distribute entries from "child_node" to "new_node"
     for ( std::size_t j = 0; j < M; ++j )
@@ -487,11 +544,16 @@ private:
       if ( !add_to_new[j] )
         continue;
 
-      size_t n = (*new_node).n_entries_;
-      ++(*new_node).n_entries_;
+      size_t n = (*new_node).n_entries();
+      (*new_node).n_entries( n+1 );
       (*new_node).object( n, child_node.object(j) );
       (*new_node).bbox( n, child_node.bbox(j) );
-      (*new_node).child( n, child_node.child_ptr(j) );
+
+      if ( !(*new_node).is_leaf() )
+      {
+        (*new_node).child( n, child_node.child_ptr(j) );
+        (*new_node).child(n).parent( *new_node );
+      }
     }
 
     // Re-distribute remining entries in "child_node"
@@ -508,18 +570,18 @@ private:
         child_node.child( k-1, child_node.child_ptr(k) );
       }
 
-      --child_node.n_entries_;
+      child_node.n_entries( child_node.n_entries() - 1 );
     }
 
     // Add "new_node" and its bounding boxx to "parent_node"
-    size_t n = parent_node.n_entries_;
-    ++parent_node.n_entries_;
+    size_t n = parent_node.n_entries();
+    parent_node.n_entries( n + 1 );
     parent_node.child( n, new_node );
 
     // Compute the covering bboxes for all entries of "parent node"
     for (std::size_t j = 0; j < parent_node.n_entries(); ++j)
     {
-      const RTreeNode<T,M>& child = *parent_node.child(j);
+      const RTreeNode<T,M>& child = parent_node.child(j);
 
       RTreeBBox cover = child.bbox(0);
 
@@ -528,11 +590,6 @@ private:
 
       parent_node.bbox( j, cover );
     }
-
-#ifndef NDEBUG
-    LOG(DEBUG) << "CURRENT TREE STRUCTURE: ";
-    LOG(DEBUG) << "\n" << (*this) << "\n";
-#endif
 
   } // split_child()
 
@@ -583,7 +640,7 @@ private:
       // be assigned to it in order to have the minimum number
       if ( n_n1 + n_remaining == M/2 )
       {
-        ASSERT( n_n2 >= M/2, "Error in function RTree::quadratic_split");
+        ASSERT( n_n2+1 >= M/2, "Error in function RTree::quadratic_split");
         return add_to_n2;
       }
 
@@ -594,7 +651,7 @@ private:
         for ( std::size_t i = 0; i < M; ++i )
           add_to_n2[i] = (distributed[i] == false) ? true : add_to_n2[i];
 
-        ASSERT( n_n1 >= M/2, "Error in function RTree::quadratic_split");
+        ASSERT( n_n1+1 >= M/2, "Error in function RTree::quadratic_split");
         return add_to_n2;
       }
 
@@ -760,11 +817,9 @@ private:
   /*------------------------------------------------------------------ 
   | Insert a new object into the RTree structure
   ------------------------------------------------------------------*/
-  void insert_nonfull(RTreeNode<T,M>& node, T* object)
+  void insert_nonfull(RTreeNode<T,M>& node, const T& object)
   {
-    LOG(DEBUG) << "ENTRY FUNCTION \"insert_nonfull()\"";
-
-    RTreeBBox& bb_obj = object->bbox();
+    const RTreeBBox& bb_obj = object.bbox();
 
     // Choose an appropriate leaf to insert the object
     RTreeNode<T,M>& leaf = choose_leaf_insertion(node, bb_obj);
@@ -772,11 +827,7 @@ private:
     // If the leaf has enough space to store the object, add it
     if ( leaf.n_entries() < M )
     {
-      std::size_t i = leaf.n_entries();
-      
-      ++leaf.n_entries_;
-      leaf.bbox(i, bb_obj); 
-      leaf.object(i, object);
+      leaf.add_object( object );
 
       // Update all BBoxes in the path from root to this leaf, 
       // so that all of them cover the object's bbox
@@ -800,8 +851,6 @@ private:
   RTreeNode<T,M>& choose_leaf_insertion(RTreeNode<T,M>&  node,
                                         const RTreeBBox& object_bbox)
   {
-    LOG(DEBUG) << "ENTRY FUNCTION \"choose_leaf_insertion()\"";
-
     // Choos only leaf nodes
     if ( node.is_leaf() )
       return node;
@@ -836,12 +885,12 @@ private:
 
     // In case that the found child is full, split it in two
     // nodes
-    if ( (*node.child(j)).n_entries() == M )
+    if ( node.child(j).n_entries() == M )
     {
       split_child(node, j);
     }
 
-    return choose_leaf_insertion( *node.child(j), object_bbox );
+    return choose_leaf_insertion( node.child(j), object_bbox );
 
   } // choose_leaf_insertion()
 
@@ -859,22 +908,43 @@ private:
     ASSERT( !parent_node.is_leaf(),
         "Invalid data structure of rtree.");
 
-    // Loop over all children of "parent_node", in order to estimate
-    // each bounding box
-    for (std::size_t i = 0; i < parent_node.n_entries(); ++i)
+    // If "node" is the "i"-th child of "parent_node", then 
+    // "parent_node.bbox(i)" is the bbox, that covers all entries
+    // of "node"
+    //
+    std::size_t i = 0; 
+
+    while ( &parent_node.child(i) != &node )
     {
-      const RTreeNode<T,M>& child = *parent_node.child(i);
-      RTreeBBox cover = child.bbox(0);
-
-      for ( std::size_t j = 1; j < child.n_entries(); ++j )
-        cover = cover.bounding_box( child.bbox(j) );
-
-      parent_node.bbox( i, cover );
+      ++i;
+      ASSERT( i < M, "Invalid data structure of R-tree");
     }
+
+    RTreeBBox cover = node.bbox(0);
+
+    for ( std::size_t j = 1; j < node.n_entries(); ++j )
+      cover = cover.bounding_box( node.bbox(j) );
+
+    parent_node.bbox( i, cover );
 
     return update_parent_bbox(parent_node);
 
   } // update_parent_bbox()
+
+  /*------------------------------------------------------------------ 
+  | This functin creates a new root node and adds it to a new top 
+  | level of the tree
+  ------------------------------------------------------------------*/
+  void add_root_node()
+  {
+    auto new_root = std::make_unique<RTreeNode<T,M>>(RTreeNodeID++);
+    (*new_root).is_leaf( false ); 
+    (*new_root).n_entries( 1 );
+    (*new_root).child(0, root_);
+    root_ = std::move(new_root);
+    root_->child(0).parent(*root_);
+
+  } // create_root()
 
 
   /*------------------------------------------------------------------ 
@@ -894,7 +964,7 @@ std::ostream& operator<<(std::ostream& os,
 {
   std::size_t height = tree.height();
 
-  return tree.root().print(os, height);
+  return tree.root().export_structure(os, height);
 }
 
 } // CppUtils
