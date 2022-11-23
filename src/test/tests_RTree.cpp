@@ -172,12 +172,44 @@ void constructor()
 
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
   std::string file_name 
-  { source_dir + "/auxiliary/test_data/RTree.txt" };
+  { source_dir + "/auxiliary/test_data/RTree_constructor.txt" };
 
   tree.write_to_file( file_name );
 
 
 } // constructor()
+
+/*--------------------------------------------------------------------
+| Test bulk insertion of many objects
+--------------------------------------------------------------------*/
+void bulk_insertion()
+{
+  RTree<TestRect, 3> tree {};
+
+  std::vector<TestRect> rectangles;
+
+  rectangles.push_back( { {3.0,4.5}, {5.0,5.5} } );
+  rectangles.push_back( { {0.0,0.0}, {1.0,1.0} } );
+  rectangles.push_back( { {4.0,4.0}, {5.0,5.0} } );
+  rectangles.push_back( { {2.0,0.5}, {3.0,1.5} } );
+  rectangles.push_back( { {0.5,1.0}, {1.5,2.0} } );
+  rectangles.push_back( { {2.0,2.0}, {3.0,3.0} } );
+  rectangles.push_back( { {4.0,1.0}, {4.5,1.5} } );
+
+  tree.insert( rectangles );
+
+
+  tree.print(std::cout);
+
+
+  std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
+  std::string file_name 
+  { source_dir + "/auxiliary/test_data/RTree_bulk_insertion.txt" };
+
+  tree.write_to_file( file_name );
+
+
+} // bulk_insertion()
 
 } // namespace RTreeTests
 
@@ -188,5 +220,7 @@ void constructor()
 void run_tests_RTree()
 {
   RTreeTests::constructor();
+
+  RTreeTests::bulk_insertion();
 
 } // run_tests_RTree()

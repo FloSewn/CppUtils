@@ -12,6 +12,8 @@
 #include <stdexcept> // std::runtime_error
 #include <iomanip>   // std::setprecision
 #include <iostream>  // std::to_string
+#include <algorithm> // std::sort
+#include <numeric>   // std::iota
 
 #include "Vec2.h"
 #include "Geometry.h"
@@ -283,6 +285,22 @@ public:
   } // print()
 
   /*------------------------------------------------------------------ 
+  | Get bounding box that encloses all objects stored in this node
+  ------------------------------------------------------------------*/
+  RTreeBBox bbox() const
+  {
+    if ( this->n_entries() < 1 )
+      return {};
+
+    RTreeBBox bbox = this->bbox(0);
+
+    for ( size_t j = 1; j < this->n_entries(); ++j )
+      bbox = bbox.bounding_box(this->bbox(j));
+
+    return bbox;
+  };
+
+  /*------------------------------------------------------------------ 
   | Access minimum bounding rectangles
   ------------------------------------------------------------------*/
   const RTreeBBox& bbox(std::size_t i) const
@@ -423,6 +441,8 @@ private:
 template <typename T, long unsigned int M>
 class RTree
 {
+  using NodeVector = std::vector<std::unique_ptr<RTreeNode<T,M>>>;
+
 public:
 
   /*------------------------------------------------------------------ 
@@ -475,6 +495,177 @@ public:
     insert_nonfull(*root_, object);
 
   } // insert()
+
+  /*------------------------------------------------------------------ 
+  | Insert a bulk of objects into the RTree structure
+  ------------------------------------------------------------------*/
+  void insert(const std::vector<T>& objects)
+  {
+    // 1) Put all objects in a temporary container, which will be 
+    //    sorted
+    std::vector<const T*> objects_ptr;
+
+    for ( const T& obj : objects )
+      objects_ptr.push_back( &obj );
+
+
+    // 2) map all N objects in the rank space
+    //    and sort them according to their score
+    std::sort(objects_ptr.begin(),
+              objects_ptr.end(),
+              [](const T* lhs, const T* rhs)
+    {
+      const RTreeBBox& bb_lhs = (*lhs).bbox();
+      const RTreeBBox& bb_rhs = (*rhs).bbox();
+
+      const double dx = bb_lhs.lowleft().x - bb_rhs.lowleft().x;
+
+      if ( dx < 0 )
+        return true;
+
+      if ( EQ0(dx) )
+      {
+        const double dy = bb_lhs.lowleft().y - bb_rhs.lowleft().y;
+        if ( dy < 0 )
+          return true;
+      }
+
+      return false;
+    });
+
+
+    // 3) Group objects into (N / M) leaf nodes
+    NodeVector nodes {};
+    size_t i = 0; 
+
+    for ( const T* obj : objects_ptr )
+    {
+      if ( i == 0 )
+      {
+        nodes.push_back(
+          std::make_unique<RTreeNode<T,M>>(RTreeNodeID++)
+        );
+      }
+
+      RTreeNode<T,M>& cur_leaf = *nodes.back().get();
+
+      cur_leaf.add_object( *obj );
+        
+      ++i;
+
+      if ( i >= M-1 )
+        i = 0;
+    }
+
+    // 4) Recursively pack leaf nodes into nodes at next level until 
+    //    root is reached
+    while ( nodes.size() > M )
+      nodes = build_tree_bulk_insertion(nodes);
+
+    // 5) Place remaining nodes into root node
+    for ( i = 0; i < nodes.size(); ++i )
+    {
+      RTreeNode<T,M>& root = *root_;
+      RTreeNode<T,M>& cur_child = *nodes[i];
+
+      cur_child.parent( root );
+      root.n_entries( i + 1 );
+      root.is_leaf( false );
+      root.bbox(i, cur_child.bbox() );
+      root.child(i, nodes[i] );
+    }
+      
+  } // insert()
+
+
+  /*------------------------------------------------------------------ 
+  | This function is called during the packing insertion of the tree.
+  | It distributes a given set of nodes to a new layer
+  | of nodes in the tree. The distribution is based on the nearest-X
+  | algorithm.
+  ------------------------------------------------------------------*/
+  NodeVector build_tree_bulk_insertion(NodeVector& children)
+  {
+    // For each child, compute the bounding box that contains all
+    // its objects 
+    std::vector<RTreeBBox> bboxes {};
+
+    for ( auto& child_ptr : children )
+    {
+      const RTreeNode<T,M>& child = *(child_ptr);
+
+      ASSERT( child.n_entries() > 0, "Invalid bulk insertion node");
+
+      RTreeBBox bbox = child.bbox(0);
+
+      for ( size_t j = 1; j < child.n_entries(); ++j )
+        bbox = bbox.bounding_box( child.bbox(j) );
+
+      bboxes.push_back( bbox );
+    }
+
+    // Create vector of indices, which sort the given children by
+    // means of their bounding boxes
+    std::vector<size_t> index( bboxes.size() );
+    std::iota(index.begin(), index.end(), 0);
+
+    std::stable_sort(index.begin(), index.end(),
+      [&bboxes](size_t i1, size_t i2)
+    {
+      const RTreeBBox& bb_lhs = bboxes[i1];
+      const RTreeBBox& bb_rhs = bboxes[i2];
+
+      const double dx = bb_lhs.lowleft().x - bb_rhs.lowleft().x;
+
+      if ( dx < 0 )
+        return true;
+
+      if ( EQ0(dx) )
+      {
+        const double dy = bb_lhs.lowleft().y - bb_rhs.lowleft().y;
+        if ( dy < 0 )
+          return true;
+      }
+
+      return false;
+    });
+
+
+    // Create new layer of parent nodes and fill distribute the given
+    // child nodes to them
+    NodeVector parent_nodes {};
+
+    size_t i = 0;
+
+    for ( size_t j = 0; j < children.size(); ++j )
+    {
+      RTreeNode<T,M>& cur_child = *children[index[j]];
+
+      if ( i == 0 )
+      {
+        parent_nodes.push_back(
+          std::make_unique<RTreeNode<T,M>>(RTreeNodeID++)
+        );
+      }
+
+      RTreeNode<T,M>& cur_node  = *parent_nodes.back().get();
+
+      cur_child.parent( cur_node );
+      cur_node.n_entries( i + 1 );
+      cur_node.is_leaf( false );
+      cur_node.child(i, children[index[j]]);
+      cur_node.bbox(i, bboxes[index[j]]);
+
+      ++i;
+
+      if ( i >= M-1 )
+        i = 0;
+    }
+
+    return std::move(parent_nodes);
+
+  } // build_tree_bulk_insertion()
+
 
   /*------------------------------------------------------------------ 
   | Print out the r-tree structure to the command line
