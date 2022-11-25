@@ -211,6 +211,37 @@ void bulk_insertion()
 
 } // bulk_insertion()
 
+/*--------------------------------------------------------------------
+| Test bounding BBoxND 
+--------------------------------------------------------------------*/
+void bounding_boxes()
+{
+  BBoxND<int, 3> a3 { {0,0,0}, {2,2,2} };
+  BBoxND<int, 3> b3 { {0,0,0}, {1,1,1} };
+
+  CHECK( b3.bbox_intersection(a3) == a3.bbox_intersection(b3) );
+  CHECK( b3.bbox_intersection(a3) == 1 );
+  CHECK( b3.bbox_cover(a3) == a3 );
+
+  BBoxND<int, 2> a2 { {0,0}, {2,2} };
+  BBoxND<int, 2> b2 { {0,0}, {1,1} };
+
+  CHECK( b2.bbox_intersection(a2) == a2.bbox_intersection(b2) );
+  CHECK( b2.bbox_intersection(a2) == 1 );
+  CHECK( b2.bbox_cover(a2) == a2 );
+
+  BBoxND<int, 1> a1 { {0}, {2} };
+  BBoxND<int, 1> b1 { {0}, {1} };
+
+  CHECK( b1.bbox_intersection(a1) == a1.bbox_intersection(b1) );
+  CHECK( b1.bbox_intersection(a1) == 1 );
+  CHECK( b1.bbox_cover(a1) == a1 );
+
+
+
+
+} // bounding_boxes()
+
 } // namespace RTreeTests
 
 
@@ -219,8 +250,10 @@ void bulk_insertion()
 *********************************************************************/
 void run_tests_RTree()
 {
-  RTreeTests::constructor();
+  //RTreeTests::constructor();
 
-  RTreeTests::bulk_insertion();
+  //RTreeTests::bulk_insertion();
+
+  RTreeTests::bounding_boxes();
 
 } // run_tests_RTree()

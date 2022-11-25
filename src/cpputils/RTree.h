@@ -1158,4 +1158,144 @@ std::ostream& operator<<(std::ostream& os,
   return tree.root().export_structure(os, height);
 }
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*********************************************************************
+* Minimum bounding rectangle 
+*********************************************************************/
+template <typename T, std::size_t N>
+class BBoxND
+{
+  using Vec = VecND<T,N>;
+
+public:
+
+  /*------------------------------------------------------------------ 
+  | Constructors
+  ------------------------------------------------------------------*/
+  BBoxND() {}
+
+  BBoxND(const Vec& ll, const Vec& ur)
+  : lowleft_ { ll }
+  , upright_ { ur }
+  {
+    const Vec delta = ur - ll;
+
+    area_ = std::accumulate(delta.cbegin(), delta.cend(), 1, 
+                            std::multiplies<T>());
+
+    ASSERT( area_ > 0, "Invalid RTreeBBox definition." );
+  }
+
+  /*------------------------------------------------------------------ 
+  | Getters
+  ------------------------------------------------------------------*/
+  T area() const { return area_; }
+
+  Vec& lowleft() { return lowleft_; }
+  const Vec& lowleft() const { return lowleft_; }
+
+  Vec& upright() { return upright_; }
+  const Vec& upright() const { return upright_; }
+
+  /*------------------------------------------------------------------ 
+  | Compute the intersection area between two RTreeBBoxes
+  ------------------------------------------------------------------*/
+  T bbox_intersection(const BBoxND<T,N>& bbox) const
+  {
+    const Vec& a = lowleft_;
+    const Vec& b = upright_;
+
+    const Vec& p = bbox.lowleft();
+    const Vec& q = bbox.upright();
+
+    Vec ll {};
+    Vec ur {};
+
+    std::transform(a.cbegin(), a.cend(), p.cbegin(), ll.begin(),
+                   [](T ai, T pi) { return std::max<T>(ai,pi); } );
+     
+    std::transform(b.cbegin(), b.cend(), q.cbegin(), ur.begin(),
+                   [](T ai, T pi) { return std::min<T>(ai,pi); } );
+
+    const Vec delta = ur - ll;
+
+    bool intersects = std::all_of(delta.cbegin(), delta.cend(), 
+                                  [](T i) { return i >= 0; });
+
+    if ( intersects )
+      return std::accumulate(delta.cbegin(), delta.cend(), 1, 
+                             std::multiplies<T>());
+
+    return {};
+
+  } // bbox_intersection()
+
+  /*------------------------------------------------------------------ 
+  | Compute the union area between two RTreeBBoxes
+  ------------------------------------------------------------------*/
+  T bbox_union(const BBoxND<T,N>& bbox) const
+  {
+    return area_ + bbox.area() - bbox_intersection(bbox);
+  }
+
+  /*------------------------------------------------------------------ 
+  | Compose an BBoxND that includes both this and another BBox
+  ------------------------------------------------------------------*/
+  BBoxND<T,N> bbox_cover(const BBoxND<T,N>& bbox) const
+  {
+    Vec min {};
+    Vec max {};
+
+    std::transform(lowleft_.cbegin(), lowleft_.cend(), 
+                   bbox.lowleft_.cbegin(), min.begin(),
+                   [](T ai, T pi) { return std::min<T>(ai,pi); } );
+
+    std::transform(upright_.cbegin(), upright_.cend(), 
+                   bbox.upright_.cbegin(), max.begin(),
+                   [](T ai, T pi) { return std::max<T>(ai,pi); } );
+
+    return { min, max }; 
+  }
+
+private:
+
+  Vec  lowleft_ {};
+  Vec  upright_ {};
+  T    area_    {};
+
+}; // BBox
+
+/*--------------------------------------------------------------------
+| BBoxND Equality / ineuality
+--------------------------------------------------------------------*/
+template <typename T, std::size_t N>
+inline bool operator==(const BBoxND<T,N>& a, const BBoxND<T,N>& b)
+{
+  const VecND<T,N> ll = a.lowleft()-b.lowleft();
+  const VecND<T,N> ur = a.upright()-b.upright();
+  return (ll.is_zero() && ur.is_zero());
+}
+
+
 } // CppUtils
