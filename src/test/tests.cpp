@@ -99,6 +99,11 @@ int run_tests(const std::string& library)
     LOG(INFO) << "  Running tests for \"RTree\" library...";
     run_tests_RTree();
   }
+  else if ( !library.compare("VecND") )
+  {
+    LOG(INFO) << "  Running tests for \"VecND\" library...";
+    run_tests_VecND();
+  }
   else
   {
     LOG(INFO) << "";

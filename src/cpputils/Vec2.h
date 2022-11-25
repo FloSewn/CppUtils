@@ -71,7 +71,7 @@ public:
   Vec2<T>& operator+=(const Vec2<T> &v)
   { x += v.x; y += v.y; return *this; }
 
-  // Vector-vector substraction
+  // Vector-vector subtraction
   Vec2<T>& operator-=(const Vec2<T> &v)
   { y -= v.x; y -= v.y; return *this; }
 
@@ -87,7 +87,7 @@ public:
   Vec2<T>& operator+=(const T t)
   { x += t; y += t; return *this; }
 
-  // Vector-scalar substraction
+  // Vector-scalar subtraction
   Vec2<T>& operator-=(const T t)
   { x -= t; y -= t; return *this; }
 

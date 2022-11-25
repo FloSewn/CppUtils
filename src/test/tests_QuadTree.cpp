@@ -10,7 +10,7 @@
 
 #include "tests.h"
 
-#include "Vec2.h"
+#include "VecND.h"
 #include "Testing.h"
 #include "QuadTree.h"
 
@@ -30,7 +30,7 @@ public:
   const Vec2<T>& xy() const { return xy_; }
 
 private:
-  Vec2<T>                   xy_;
+  Vec2<T> xy_ {};
 }; 
 
 /*--------------------------------------------------------------------
@@ -58,7 +58,7 @@ public:
 private:
   VertexType<T>* v1_ { nullptr };
   VertexType<T>* v2_ { nullptr };
-  Vec2<T>        xy_ { 0, 0 };
+  Vec2<T>        xy_ { 0.0, 0.0 };
 }; 
 
 /*--------------------------------------------------------------------

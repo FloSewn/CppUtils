@@ -10,7 +10,7 @@
 
 #include "tests.h"
 
-#include "Vec2.h"
+#include "VecND.h"
 #include "Container.h"
 #include "Testing.h"
 
@@ -103,7 +103,7 @@ public:
     const Vec2d d_xy = v2_->xy() - v1_->xy();
 
     xy_     = 0.5 * ( v1_->xy() + v2_->xy() );
-    length_ = d_xy.length();
+    length_ = d_xy.norm();
     tang_   = d_xy / length_;
 
     norm_.x = -tang_.y;
@@ -367,15 +367,15 @@ void sort()
   [x] ( Container<Vertex>::value_type& a, 
         Container<Vertex>::value_type& b )
   {
-    const double l1 = ((*a).xy()-x).length_squared();
-    const double l2 = ((*b).xy()-x).length_squared();
+    const double l1 = ((*a).xy()-x).norm_sqr();
+    const double l2 = ((*b).xy()-x).norm_sqr();
     return ( l1 < l2 );
   });
 
   double l_old = 0.0;
   for ( const auto& v_ptr : vertices )
   {
-    const double l = ((*v_ptr).xy()-x).length();
+    const double l = ((*v_ptr).xy()-x).norm();
     CHECK( (l_old <= l) );
     l_old = l;
   }

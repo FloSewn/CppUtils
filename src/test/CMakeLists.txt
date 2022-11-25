@@ -1,6 +1,7 @@
 set( TESTS TestCppUtils )
 
 add_executable( ${TESTS}
+  tests_VecND.cpp
   tests_BTree.cpp
   tests_RTree.cpp
   tests_Matrix.cpp

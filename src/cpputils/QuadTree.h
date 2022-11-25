@@ -14,7 +14,7 @@
 #include <iomanip>   // std::setprecision
 #include <iostream>  // std::to_string
 
-#include "Vec2.h"
+#include "VecND.h"
 #include "Geometry.h"
 #include "Helpers.h"
 #include "Log.h"
@@ -38,7 +38,7 @@ template <typename T, typename V>
 static inline bool quadtree_circ_query_fun(T* item, 
                                            const Vec2<V>& c, 
                                            const V r_sqr)
-{ return ( (item->xy() - c).length_squared() < r_sqr ); }
+{ return ( (item->xy() - c).norm_sqr() < r_sqr ); }
 
 /*********************************************************************
 * Default query function for QuadTree nearest neighbor search 
@@ -48,7 +48,7 @@ static inline bool quadtree_nearest_query_fun(T* item,
                                               const Vec2<V>& c, 
                                               V& min_d_sqr)
 {
-  const V d_sqr = (item->xy() - c).length_squared();
+  const V d_sqr = (item->xy() - c).norm_sqr();
   if ( d_sqr < min_d_sqr )
   {
     min_d_sqr = d_sqr;

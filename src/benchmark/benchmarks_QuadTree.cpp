@@ -13,7 +13,7 @@
 
 #include "CppUtilsConfig.h"
 
-#include "Vec2.h"
+#include "VecND.h"
 #include "QuadTree.h"
 #include "Timer.h"
 #include "Helpers.h"
@@ -211,7 +211,7 @@ void benchmark(int n, int r, size_t imax, size_t dmax,
 
       for ( const auto& v_ptr : vertices )
       {
-        double dist = (xy-v_ptr->xy()).length_squared();
+        double dist = (xy-v_ptr->xy()).norm_sqr();
 
         if (dist < best_dist)
         {

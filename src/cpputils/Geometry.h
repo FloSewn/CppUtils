@@ -8,7 +8,7 @@
 #pragma once
 
 #include "MathUtility.h"
-#include "Vec2.h"
+#include "VecND.h"
 
 namespace CppUtils {
 
@@ -95,7 +95,7 @@ static inline bool in_segment(const Vec2<T>& p,
   const Vec2<T> d_qp  = q-p;
   const Vec2<T> d_rp  = r-p;
   const T t = dot(d_rp, d_qp); 
-  const T l2 = d_qp.length_squared();
+  const T l2 = d_qp.norm_sqr();
 
   if ( t > 0 && t < l2)
     return true;
@@ -118,7 +118,7 @@ static inline bool in_on_segment(const Vec2<T>& p,
   const Vec2<T> d_qp  = q-p;
   const Vec2<T> d_rp  = r-p;
   const T t = dot(d_rp, d_qp); 
-  const T l2 = d_qp.length_squared();
+  const T l2 = d_qp.norm_sqr();
 
   if ( t >= 0 && t <= l2)
     return true;
@@ -429,7 +429,7 @@ inline double vertex_edge_dist_sqr(const Vec2<T>& p,
   const Vec2<T> d_pv = p - v;
 
   // Project p onto segment v->w
-  const T dot_p = dot(d_pv, d_wv) / d_wv.length_squared();
+  const T dot_p = dot(d_pv, d_wv) / d_wv.norm_sqr();
 
   // Clip projection onto the segment 
   const T t = MAX(0.0, MIN(1.0, dot_p) );
@@ -438,7 +438,7 @@ inline double vertex_edge_dist_sqr(const Vec2<T>& p,
   const Vec2<T> proj_p = v + t * d_wv;
 
   // Squared distance between projected and actual vertex
-  return (p - proj_p).length_squared();
+  return (p - proj_p).norm_sqr();
 }
 
 /*--------------------------------------------------------------------

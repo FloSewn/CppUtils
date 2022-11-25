@@ -15,7 +15,7 @@
 #include <algorithm> // std::sort
 #include <numeric>   // std::iota
 
-#include "Vec2.h"
+#include "VecND.h"
 #include "Geometry.h"
 #include "MathUtility.h"
 #include "Helpers.h"

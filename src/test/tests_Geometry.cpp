@@ -12,6 +12,7 @@
 
 #include "Geometry.h"
 #include "Testing.h"
+#include "VecND.h"
 
 
 namespace GeometryTests 
@@ -126,11 +127,11 @@ void is_lefton()
   /*------------------------------------------------------------------
   | Float
   ------------------------------------------------------------------*/
-  const Vec2d p2 { -0.1f, -0.1f };
-  const Vec2d q2 {  0.1f,  0.1f };
-  const Vec2d r2 { -0.1f,  0.1f };
-  const Vec2d s2 {  0.1f, -0.1f };
-  const Vec2d t2 {  0.0f,  0.0f };
+  const Vec2f p2 { -0.1f, -0.1f };
+  const Vec2f q2 {  0.1f,  0.1f };
+  const Vec2f r2 { -0.1f,  0.1f };
+  const Vec2f s2 {  0.1f, -0.1f };
+  const Vec2f t2 {  0.0f,  0.0f };
 
   CHECK(  (is_lefton(p2,q2,r2) ) );
   CHECK( !(is_lefton(p2,q2,s2) ) );
@@ -139,11 +140,11 @@ void is_lefton()
   /*------------------------------------------------------------------
   | Integer
   ------------------------------------------------------------------*/
-  const Vec2d p3 { -1, -1 };
-  const Vec2d q3 {  1,  1 };
-  const Vec2d r3 { -1,  1 };
-  const Vec2d s3 {  1, -1 };
-  const Vec2d t3 {  0,  0 };
+  const Vec2i p3 { -1, -1 };
+  const Vec2i q3 {  1,  1 };
+  const Vec2i r3 { -1,  1 };
+  const Vec2i s3 {  1, -1 };
+  const Vec2i t3 {  0,  0 };
 
   CHECK(  (is_lefton(p3,q3,r3) ) );
   CHECK( !(is_lefton(p3,q3,s3) ) );
