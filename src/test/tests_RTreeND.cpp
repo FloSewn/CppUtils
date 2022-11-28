@@ -178,14 +178,12 @@ void constructor()
 
   tree.print(std::cout);
 
-  /*
 
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
   std::string file_name 
   { source_dir + "/auxiliary/test_data/RTree_constructor.txt" };
 
   tree.write_to_file( file_name );
-  */
 
 
 } // constructor()
@@ -195,8 +193,7 @@ void constructor()
 --------------------------------------------------------------------*/
 void bulk_insertion()
 {
-  /*
-  RTreeND<TestRect, 3> tree {};
+  RTreeND<TestRect, 3, double, 2> tree {};
 
   std::vector<TestRect> rectangles;
 
@@ -219,7 +216,6 @@ void bulk_insertion()
   { source_dir + "/auxiliary/test_data/RTree_bulk_insertion.txt" };
 
   tree.write_to_file( file_name );
-  */
 
 
 } // bulk_insertion()

@@ -115,7 +115,7 @@ public:
     if ( !is_leaf() )
     {
       ++height;
-      height = child(0).add_height(height);
+      height = child(0).increment_tree_height(height);
     }
 
     return height;
@@ -1055,6 +1055,20 @@ private:
 
 
 }; // RTreeND
+
+
+
+/*********************************************************************
+* ostream
+*********************************************************************/
+template <typename OBJ, long unsigned int M, typename T, std::size_t N>
+std::ostream& operator<<(std::ostream& os, 
+                         const RTreeND<OBJ,M,T,N>& tree)
+{
+  std::size_t height = tree.height();
+
+  return tree.root().export_structure(os, height);
+}
 
 
 } // namespace CppUtils
