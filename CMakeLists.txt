@@ -63,3 +63,6 @@ add_test(NAME ParaReader COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "ParaReade
 add_test(NAME VtkIO COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "VtkIO")
 add_test(NAME Log COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "Log")
 add_test(NAME Matrix COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "Matrix")
+add_test(NAME VecND COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "VecND")
+add_test(NAME BBoxND COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "BBoxND")
+add_test(NAME RTree COMMAND ${CMAKE_SOURCE_DIR}/bin/TestCppUtils "RTree")

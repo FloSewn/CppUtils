@@ -104,6 +104,11 @@ int run_tests(const std::string& library)
     LOG(INFO) << "  Running tests for \"VecND\" library...";
     run_tests_VecND();
   }
+  else if ( !library.compare("BBoxND") )
+  {
+    LOG(INFO) << "  Running tests for \"BBoxND\" library...";
+    run_tests_BBoxND();
+  }
   else
   {
     LOG(INFO) << "";

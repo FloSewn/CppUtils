@@ -16,7 +16,7 @@
 
 //using CppUtils::LOG_PROPERTIES;
 //using CppUtils::LOG;
-//using CppUtils::LogLevel::INFO;
+using CppUtils::LogLevel::INFO;
 
 using namespace CppUtils;
 

@@ -35,10 +35,10 @@ class VecND
 public:
 
   /*------------------------------------------------------------------
-  | Variables for ostream formatting
+  | Variables for ostream formatting / precision 
   ------------------------------------------------------------------*/
   static inline std::size_t os_precision = 3;
-  static inline std::size_t os_width = 6; 
+  static inline std::size_t os_width = 0; 
   static inline std::size_t cmp_ulp = 2;
 
   /*------------------------------------------------------------------
@@ -246,6 +246,22 @@ public:
   {
     T v = norm_sqr();
     return (v <= std::numeric_limits<T>::epsilon() * v * ulp);
+  }
+
+  /*------------------------------------------------------------------
+  | Returns the sum of all vector entries
+  ------------------------------------------------------------------*/
+  T sum() const
+  { 
+    return std::accumulate(cbegin(), cend(), 0);
+  }
+
+  /*------------------------------------------------------------------
+  | Returns the product of all vector entries
+  ------------------------------------------------------------------*/
+  T product() const 
+  {
+    return std::accumulate(cbegin(), cend(), 1, std::multiplies<T>());
   }
 
 }; // VecND
