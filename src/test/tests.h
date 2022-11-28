@@ -29,8 +29,8 @@ void run_tests_VtkIO();
 void run_tests_Log();
 void run_tests_Matrix();
 void run_tests_BTree();
-void run_tests_RTree();
 void run_tests_VecND();
 void run_tests_BBoxND();
+void run_tests_RTreeND();
 
 

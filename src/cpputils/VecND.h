@@ -261,7 +261,8 @@ public:
   ------------------------------------------------------------------*/
   T product() const 
   {
-    return std::accumulate(cbegin(), cend(), 1, std::multiplies<T>());
+    return std::accumulate(cbegin(), cend(), 1.0, 
+                           std::multiplies<T>());
   }
 
 }; // VecND

@@ -94,11 +94,6 @@ int run_tests(const std::string& library)
     LOG(INFO) << "  Running tests for \"BTree\" library...";
     run_tests_BTree();
   }
-  else if ( !library.compare("RTree") )
-  {
-    LOG(INFO) << "  Running tests for \"RTree\" library...";
-    run_tests_RTree();
-  }
   else if ( !library.compare("VecND") )
   {
     LOG(INFO) << "  Running tests for \"VecND\" library...";
@@ -108,6 +103,11 @@ int run_tests(const std::string& library)
   {
     LOG(INFO) << "  Running tests for \"BBoxND\" library...";
     run_tests_BBoxND();
+  }
+  else if ( !library.compare("RTreeND") )
+  {
+    LOG(INFO) << "  Running tests for \"RTreeND\" library...";
+    run_tests_RTreeND();
   }
   else
   {

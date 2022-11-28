@@ -4,7 +4,7 @@ add_executable( ${TESTS}
   tests_VecND.cpp
   tests_BBoxND.cpp
   tests_BTree.cpp
-  tests_RTree.cpp
+  tests_RTreeND.cpp
   tests_Matrix.cpp
   tests_Log.cpp
   tests_VtkIO.cpp

@@ -42,7 +42,9 @@ public:
   {
     size_ = (ur-ll).product();
 
-    ASSERT( size_ > 0, "Invalid RTreeBBox definition." );
+    ASSERT( size_ > 0, 
+      "BBoxND: Invalid bounding box definition. "
+      "Box size equals to " + std::to_string(size_) );
   }
 
   /*------------------------------------------------------------------
@@ -241,7 +243,6 @@ public:
 
 
 private:
-
   Vec  lowleft_ {};
   Vec  upright_ {};
   T    size_    {};
