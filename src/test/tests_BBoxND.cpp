@@ -46,9 +46,42 @@ void constructor()
   CHECK( b1.bbox_intersection(a1) == 1 );
   CHECK( b1.bbox_cover(a1) == a1 );
 
-  LOG(INFO) << b1;
-  LOG(INFO) << b2;
-  LOG(INFO) << b3;
+
+  auto vert3 = a3.vertices();
+  CHECK( vert3.size() == 8 );
+
+  CHECK( vert3[0].x == 0 );
+  CHECK( vert3[0].y == 0 );
+  CHECK( vert3[0].z == 0 );
+
+  CHECK( vert3[1].x == 2 );
+  CHECK( vert3[1].y == 0 );
+  CHECK( vert3[1].z == 0 );
+
+
+  auto vert2 = a2.vertices();
+  CHECK( vert2.size() == 4 );
+
+  CHECK( vert2[0].x == 0 );
+  CHECK( vert2[0].y == 0 );
+
+  CHECK( vert2[1].x == 2 );
+  CHECK( vert2[1].y == 0 );
+
+  CHECK( vert2[2].x == 2 );
+  CHECK( vert2[2].y == 2 );
+
+  CHECK( vert2[3].x == 0 );
+  CHECK( vert2[3].y == 2 );
+
+
+  auto vert1 = a1.vertices();
+  CHECK( vert1.size() == 2 );
+
+  CHECK( vert1[0].x == 0 );
+  CHECK( vert1[1].x == 2 );
+
+
 
 } // constructor()
 

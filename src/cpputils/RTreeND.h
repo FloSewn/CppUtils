@@ -20,6 +20,7 @@
 #include "MathUtility.h"
 #include "Helpers.h"
 #include "Log.h"
+#include "VtkIO.h"
 
 namespace CppUtils {
 
@@ -122,18 +123,74 @@ public:
   }
 
   /*------------------------------------------------------------------ 
+  | Export the node data to the VTK format
+  ------------------------------------------------------------------*/
+  std::size_t export_to_vtu(std::vector<T>&           points,
+                            std::vector<std::size_t>& connectivity,
+                            std::vector<std::size_t>& offsets,
+                            std::vector<std::size_t>& types,
+                            std::vector<int>&         heights,
+                            std::size_t               cur_height,
+                            std::size_t               cur_offset=0)
+  {
+    // Call method for child nodes
+    if ( !is_leaf() )
+      for (std::size_t i = 0; i < n_entries(); ++i)
+        cur_offset = child(i).export_to_vtu(points, connectivity, 
+                                            offsets,types, heights, 
+                                            cur_height-1, cur_offset);
+
+    std::size_t n_verts = points.size() / 3;
+
+    for (std::size_t i = 0; i < n_entries(); ++i)
+    {
+      auto vertices = bbox(i).vertices();
+
+      for (std::size_t j = 0; j < vertices.size(); ++j)
+      {
+        for (std::size_t k = 0; k < N; ++k)
+          points.push_back(vertices[j][k]);
+
+        for (std::size_t k = N; k < 3; ++k)
+          points.push_back( 0.0f );
+
+        connectivity.push_back(n_verts);
+        ++n_verts;
+      }
+
+      offsets.push_back( cur_offset );
+      cur_offset += vertices.size();
+
+      if (N == 3)
+        types.push_back( 12 ); // VTK_HEXAHEDRON
+
+      if (N == 2)
+        types.push_back( 9 ); // VTK_QUAD
+
+      if (N == 1)
+        types.push_back( 3 ); // VTK_LINE
+
+
+      heights.push_back( cur_height );
+    }
+
+    return cur_offset;
+
+  } // RTreeNodeND::export_to_vtu()
+
+  /*------------------------------------------------------------------ 
   | Export the node data 
   ------------------------------------------------------------------*/
-  std::ostream& export_structure(std::ostream& os,  
-                                 std::size_t   level=0, 
-                                 std::size_t   index=0,
-                                 std::size_t   parent_index=0) const
+  std::ostream& export_to_txt(std::ostream& os,  
+                              std::size_t   level=0, 
+                              std::size_t   index=0,
+                              std::size_t   parent_index=0) const
   {
     if ( !is_leaf() )
     {
       for (std::size_t i = 0; i < n_entries(); ++i)
       {
-        child(i).export_structure(os, level-1, i, index);
+        child(i).export_to_txt(os, level-1, i, index);
         os << "\n";
       }
     }
@@ -158,7 +215,7 @@ public:
 
     return os;
 
-  } // export_structure()
+  } // RTreeNodeND::export_to_txt()
 
   /*------------------------------------------------------------------ 
   | Print out the tree structure to the command line
@@ -389,6 +446,34 @@ public:
   ------------------------------------------------------------------*/
   std::ostream& print(std::ostream& os)
   { (*root_).print(os); }
+
+  /*------------------------------------------------------------------ 
+  | 
+  ------------------------------------------------------------------*/
+  void write_to_vtu(const std::string& path) const
+  {
+    std::string file_name = path;
+
+    if (file_name.substr(file_name.find_last_of(".") + 1) != "vtu")
+      file_name += ".vtu";
+    
+    std::vector<T> points {};
+    std::vector<std::size_t> connectivity {};
+    std::vector<std::size_t> offsets {};
+    std::vector<std::size_t> types {};
+    std::vector<int> heights {};
+
+    std::size_t tree_height = height();
+
+    (*root_).export_to_vtu(points, connectivity, offsets, 
+                           types, heights, tree_height);
+
+    VtuWriter writer { points, connectivity, offsets, types };
+    writer.add_cell_data( heights, "height", 1);
+    writer.write( file_name );
+
+
+  } // RTreeND::write_to_vtu()
 
   /*------------------------------------------------------------------ 
   | Write the R-Tree structure to a text file
@@ -1067,7 +1152,7 @@ std::ostream& operator<<(std::ostream& os,
 {
   std::size_t height = tree.height();
 
-  return tree.root().export_structure(os, height);
+  return tree.root().export_to_txt(os, height);
 }
 
 

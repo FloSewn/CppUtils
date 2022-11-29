@@ -207,15 +207,22 @@ void bulk_insertion()
 
   tree.insert( rectangles );
 
-
   tree.print(std::cout);
 
 
+  /*
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
   std::string file_name 
   { source_dir + "/auxiliary/test_data/RTree_bulk_insertion.txt" };
 
   tree.write_to_file( file_name );
+  */
+
+  std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
+  std::string file_name 
+  { source_dir + "/auxiliary/test_data/RTree_bulk_insertion.vtu" };
+
+  tree.write_to_vtu( file_name );
 
 
 } // bulk_insertion()

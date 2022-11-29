@@ -11,6 +11,8 @@
 #include <functional>
 #include <numeric>
 #include <iostream>
+#include <array>
+#include <bitset>
 
 #include "VecND.h"
 #include "MathUtility.h"
@@ -62,6 +64,37 @@ public:
 
   Vec& upright() { return upright_; }
   const Vec& upright() const { return upright_; }
+
+  /*------------------------------------------------------------------ 
+  | Return all bounding box vertices in an array
+  | (1<<N) returns a power of two, which in this case gives the 
+  | number of bounding box vertices
+  ------------------------------------------------------------------*/
+  std::array<Vec,(1<<N)> vertices() const
+  {
+    std::array<Vec,(1<<N)> verts { {} };
+
+    const Vec delta = upright_ - lowleft_;
+
+    std::size_t nv = (1<<N);
+
+    for (std::size_t i=0; i < nv; ++i)
+    {
+      // Create a bitset to access all bbox vertices, 
+      // e.g. for N==2: { (0,0), (0,1), (1,0), (1,1) }
+      std::bitset<N> bits = std::bitset<N>((i>>1) ^ i);
+
+      // Fill bitset into a Vec
+      Vec dir {};
+      for (std::size_t j=0; j < N; ++j)
+        dir[j] = bits[j];
+
+      // Finally, compute the vertex coordinates
+      verts[i] = lowleft_ + dir * delta;
+    }
+
+    return std::move(verts);
+  }
 
   /*------------------------------------------------------------------ 
   | Compute the intersection area between two RTreeBBoxes
