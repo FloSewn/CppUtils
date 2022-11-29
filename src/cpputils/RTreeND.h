@@ -131,7 +131,7 @@ public:
                             std::vector<std::size_t>& types,
                             std::vector<int>&         heights,
                             std::size_t               cur_height,
-                            std::size_t               cur_offset=0)
+                            std::size_t               cur_offset=(1<<N))
   {
     // Call method for child nodes
     if ( !is_leaf() )
@@ -152,7 +152,7 @@ public:
           points.push_back(vertices[j][k]);
 
         for (std::size_t k = N; k < 3; ++k)
-          points.push_back( 0.0f );
+          points.push_back( -1.0f * cur_height );
 
         connectivity.push_back(n_verts);
         ++n_verts;
@@ -169,7 +169,6 @@ public:
 
       if (N == 1)
         types.push_back( 3 ); // VTK_LINE
-
 
       heights.push_back( cur_height );
     }

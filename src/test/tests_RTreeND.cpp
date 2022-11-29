@@ -173,17 +173,21 @@ void constructor()
   for (TestRect& r : rectangles)
     tree.insert( r );
 
-  //CHECK( tree.root().n_entries() == 2 );
-
-
   tree.print(std::cout);
 
-
+  /*
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
   std::string file_name 
   { source_dir + "/auxiliary/test_data/RTree_constructor.txt" };
 
   tree.write_to_file( file_name );
+  */
+
+  std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
+  std::string file_name 
+  { source_dir + "/auxiliary/test_data/RTree_constructor.vtu" };
+
+  tree.write_to_vtu( file_name );
 
 
 } // constructor()

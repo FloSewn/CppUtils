@@ -69,6 +69,11 @@ public:
   | Return all bounding box vertices in an array
   | (1<<N) returns a power of two, which in this case gives the 
   | number of bounding box vertices
+  | 
+  | References:
+  | -----------
+  | http://graphics.stanford.edu/~seander/bithacks.html\
+  | #NextBitPermutation
   ------------------------------------------------------------------*/
   std::array<Vec,(1<<N)> vertices() const
   {

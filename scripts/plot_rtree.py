@@ -128,6 +128,7 @@ def main(argv):
 
     # Create the plot
     fig, ax = plt.subplots(1,1,dpi=200)
+    ax.set_aspect(1)
 
     rtree.plot_bboxes( ax )
 
