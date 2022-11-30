@@ -42,11 +42,11 @@ public:
   : lowleft_ { ll }
   , upright_ { ur }
   {
-    size_ = (ur-ll).product();
+    scale_ = (ur-ll).product();
 
-    ASSERT( size_ > 0, 
+    ASSERT( scale_ > 0, 
       "BBoxND: Invalid bounding box definition. "
-      "Box size equals to " + std::to_string(size_) );
+      "Box size equals to " + std::to_string(scale_) );
   }
 
   /*------------------------------------------------------------------
@@ -57,7 +57,7 @@ public:
   /*------------------------------------------------------------------ 
   | Getters
   ------------------------------------------------------------------*/
-  T area() const { return size_; }
+  T scale() const { return scale_; }
 
   Vec& lowleft() { return lowleft_; }
   const Vec& lowleft() const { return lowleft_; }
@@ -102,7 +102,7 @@ public:
   }
 
   /*------------------------------------------------------------------ 
-  | Compute the intersection area between two RTreeBBoxes
+  | Compute the intersection size between two RTreeBBoxes
   ------------------------------------------------------------------*/
   T bbox_intersection(const BBoxND<T,N>& bbox) const
   {
@@ -134,11 +134,11 @@ public:
   } // bbox_intersection()
 
   /*------------------------------------------------------------------ 
-  | Compute the union area between two RTreeBBoxes
+  | Compute the union size between two RTreeBBoxes
   ------------------------------------------------------------------*/
   T bbox_union(const BBoxND<T,N>& bbox) const
   {
-    return size_ + bbox.area() - bbox_intersection(bbox);
+    return scale_ + bbox.scale() - bbox_intersection(bbox);
   }
 
   /*------------------------------------------------------------------ 
@@ -283,7 +283,7 @@ public:
 private:
   Vec  lowleft_ {};
   Vec  upright_ {};
-  T    size_    {};
+  T    scale_   {};
 
 }; // BBoxND
 

@@ -9,7 +9,7 @@
 
 #include <functional>
 #include <float.h>
-#include <limits.h>
+#include <limits>
 #include <vector>
 #include <numeric>
 #include <algorithm>
@@ -22,21 +22,26 @@ namespace CppUtils {
 constexpr double CPPUTILS_SMALL  = 1.0E-13; //DBL_EPSILON;
 constexpr double CPPUTILS_MAX    = DBL_MAX;
 constexpr double CPPUTILS_MIN    = DBL_MIN;
+constexpr size_t CPPUTILS_ULP    = 2;
 
 /*********************************************************************
 * USEFUL FUNCTIONS
 *********************************************************************/
 template <typename T> 
 static inline T ABS(T a)
-{ return ( (a > 0) ? a : -a); }
+{ return ( (a > T{}) ? a : -a); }
 
 template <typename T>
-static inline bool EQ(T a, T b)
-{ return ( ABS(a-b) < CPPUTILS_SMALL ); }
+static inline bool EQ0(T a, size_t ulp=CPPUTILS_ULP)
+{ 
+  T a2 = a*a; 
+  return (a2 <= std::numeric_limits<T>::epsilon()*a2*ulp);
+}
 
 template <typename T>
-static inline bool EQ0(T a)
-{ return ( ABS(a) < CPPUTILS_SMALL ); }
+static inline bool EQ(T a, T b, size_t ulp=CPPUTILS_ULP)
+{ return EQ0(a-b, ulp); }
+
 
 template <typename T>
 static inline T MIN(T a, T b) 

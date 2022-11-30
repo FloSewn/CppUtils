@@ -151,6 +151,7 @@ private:
 }; // TestObject
 
 using TestRect = TestObject<double, 2>;
+using TestCube = TestObject<double, 3>;
 
 /*--------------------------------------------------------------------
 | Test constructor
@@ -175,19 +176,16 @@ void constructor()
 
   tree.print(std::cout);
 
-  /*
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
-  std::string file_name 
+  std::string file_name_txt 
   { source_dir + "/auxiliary/test_data/RTree_constructor.txt" };
 
-  tree.write_to_file( file_name );
-  */
+  tree.write_to_file( file_name_txt );
 
-  std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
-  std::string file_name 
+  std::string file_name_vtu 
   { source_dir + "/auxiliary/test_data/RTree_constructor.vtu" };
 
-  tree.write_to_vtu( file_name );
+  tree.write_to_vtu( file_name_vtu );
 
 
 } // constructor()
@@ -195,7 +193,7 @@ void constructor()
 /*--------------------------------------------------------------------
 | Test bulk insertion of many objects
 --------------------------------------------------------------------*/
-void bulk_insertion()
+void bulk_insertion_2d()
 {
   RTreeND<TestRect, 3, double, 2> tree {};
 
@@ -214,22 +212,52 @@ void bulk_insertion()
   tree.print(std::cout);
 
 
-  /*
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
-  std::string file_name 
-  { source_dir + "/auxiliary/test_data/RTree_bulk_insertion.txt" };
+  std::string file_name_txt
+  { source_dir + "/auxiliary/test_data/RTree_bulk_insertion_2d.txt" };
 
-  tree.write_to_file( file_name );
-  */
+  tree.write_to_file( file_name_txt );
+
+  std::string file_name_vtu 
+  { source_dir + "/auxiliary/test_data/RTree_bulk_insertion_2d.vtu" };
+
+  tree.write_to_vtu( file_name_vtu );
+
+
+
+} // bulk_insertion_2d()
+
+/*--------------------------------------------------------------------
+| Test bulk insertion of many objects
+--------------------------------------------------------------------*/
+void bulk_insertion_3d()
+{
+  RTreeND<TestCube, 3, double, 3> tree {};
+
+  std::vector<TestCube> cubes;
+  
+  cubes.push_back( { {0.0,0.0,0.0}, {2.0,2.0,2.0} } );
+  cubes.push_back( { {3.0,3.0,3.0}, {5.0,5.0,5.0} } );
+  cubes.push_back( { {6.0,7.0,3.0}, {8.0,8.0,5.0} } );
+  cubes.push_back( { {1.0,3.0,1.0}, {8.0,8.0,5.0} } );
+  cubes.push_back( { {2.0,2.0,2.0}, {2.5,2.5,2.5} } );
+
+  //for (TestCube& c : cubes)
+  //  tree.insert( c );
+
+  tree.insert( cubes );
+
+  tree.print(std::cout);
+
 
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
-  std::string file_name 
-  { source_dir + "/auxiliary/test_data/RTree_bulk_insertion.vtu" };
 
-  tree.write_to_vtu( file_name );
+  std::string file_name_vtu 
+  { source_dir + "/auxiliary/test_data/RTree_bulk_insertion_3d.vtu" };
 
+  tree.write_to_vtu( file_name_vtu );
 
-} // bulk_insertion()
+} // bulk_insertion_3d()
 
 } // namespace RTreeNDTests
 
@@ -239,8 +267,10 @@ void bulk_insertion()
 *********************************************************************/
 void run_tests_RTreeND()
 {
-  RTreeNDTests::constructor();
+  //RTreeNDTests::constructor();
 
-  RTreeNDTests::bulk_insertion();
+  //RTreeNDTests::bulk_insertion_2d();
+
+  RTreeNDTests::bulk_insertion_3d();
 
 } // run_tests_RTreeND()

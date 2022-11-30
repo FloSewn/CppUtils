@@ -24,6 +24,12 @@
 
 namespace CppUtils {
 
+// Array to map from BBoxND vertex coordinates
+// to VTK hexahedral coordinates
+static std::array<std::size_t,8> BBOXND_VTK_CONN_MAP 
+{ 0, 1, 2, 3, 7, 6, 5, 4 };
+
+
 template 
 <
   typename          OBJ,  // Contained object
@@ -146,6 +152,8 @@ public:
     {
       auto vertices = bbox(i).vertices();
 
+      std::size_t v_start = n_verts;
+
       for (std::size_t j = 0; j < vertices.size(); ++j)
       {
         for (std::size_t k = 0; k < N; ++k)
@@ -154,7 +162,7 @@ public:
         for (std::size_t k = N; k < 3; ++k)
           points.push_back( -1.0f * cur_height );
 
-        connectivity.push_back(n_verts);
+        connectivity.push_back( v_start + BBOXND_VTK_CONN_MAP[ j ]);
         ++n_verts;
       }
 
@@ -201,8 +209,8 @@ public:
 
     for (std::size_t i = 0; i < n_entries(); ++i)
     {
-      const Vec2d& ll = bbox(i).lowleft();
-      const Vec2d& ur = bbox(i).upright();
+      const VecND<T,N>& ll = bbox(i).lowleft();
+      const VecND<T,N>& ur = bbox(i).upright();
 
       os << std::setprecision(5) << std::fixed 
          << ll.x << ", " << ll.y << ", " 
@@ -536,26 +544,10 @@ public:
 
     // 2) map all N objects in the rank space
     //    and sort them according to their score
-    std::sort(objects_ptr.begin(),
-              objects_ptr.end(),
+    std::sort(objects_ptr.begin(), objects_ptr.end(),
               [](const OBJ* lhs, const OBJ* rhs)
     {
-      const BBox& bb_lhs = (*lhs).bbox();
-      const BBox& bb_rhs = (*rhs).bbox();
-
-      const double dx = bb_lhs.lowleft().x - bb_rhs.lowleft().x;
-
-      if ( dx < 0 )
-        return true;
-
-      if ( EQ0(dx) )
-      {
-        const double dy = bb_lhs.lowleft().y - bb_rhs.lowleft().y;
-        if ( dy < 0 )
-          return true;
-      }
-
-      return false;
+      return packing_sort_nearest((*lhs).bbox(), (*rhs).bbox());
     });
 
 
@@ -566,11 +558,7 @@ public:
     for ( const OBJ* obj : objects_ptr )
     {
       if ( i == 0 )
-      {
-        nodes.push_back(
-          std::make_unique<Node>(RTreeNodeID++)
-        );
-      }
+        nodes.push_back( std::make_unique<Node>(RTreeNodeID++) );
 
       Node& cur_leaf = *nodes.back().get();
 
@@ -766,8 +754,8 @@ private:
       const BBox cover_1 = bbox_1.bbox_cover(E_i);
       const BBox cover_2 = bbox_2.bbox_cover(E_i);
       
-      const double d1 = cover_1.area() - bbox_1.area(); 
-      const double d2 = cover_2.area() - bbox_2.area(); 
+      const double d1 = cover_1.scale() - bbox_1.scale(); 
+      const double d2 = cover_2.scale() - bbox_2.scale(); 
 
       bool add_entry_to_n2 = false;
 
@@ -779,12 +767,12 @@ private:
       // In case of ties 
       if ( EQ(d1, d2) ) 
       {
-        // Add entry to set with smaller area
-        if ( bbox_2.area() < bbox_1.area() )
+        // Add entry to set with smaller size
+        if ( bbox_2.scale() < bbox_1.scale() )
           add_entry_to_n2 = true;
 
         // Then to the one with fewer entries
-        if ( EQ(bbox_1.area(), bbox_2.area()) && (n_n2 < n_n1) )
+        if ( EQ(bbox_1.scale(), bbox_2.scale()) && (n_n2 < n_n1) )
           add_entry_to_n2 = true;
       }
 
@@ -836,8 +824,8 @@ private:
 
         const BBox J = E_i.bbox_cover(E_j);
 
-        // Compute the inefficiency area
-        const double diff = J.area() - E_i.area() - E_j.area();
+        // Compute the inefficiency size
+        const double diff = J.scale() - E_i.scale() - E_j.scale();
 
         // Choose the most wasteful pair
         if ( diff > ineff )
@@ -885,13 +873,13 @@ private:
 
       const BBox& E_i = node.bbox(i);
 
-      // Compute the area increases required in the covering rectangles
+      // Compute the size increases required in the covering rectangles
       // "bbox_1" and "bbox_2" to include entry "i"
       BBox C_1 = bbox_1.bbox_cover(E_i);
       BBox C_2 = bbox_2.bbox_cover(E_i);
 
-      const double d1 = C_1.area() - bbox_1.area();
-      const double d2 = C_2.area() - bbox_2.area();
+      const double d1 = C_1.scale() - bbox_1.scale();
+      const double d2 = C_2.scale() - bbox_2.scale();
 
       const double diff = ABS(d1 - d2);
 
@@ -954,7 +942,7 @@ private:
     double m = CPPUTILS_MAX;
     std::size_t j = 0;
 
-    double cover_j = node.bbox(j).bbox_cover(object_bbox).area();
+    double cover_j = node.bbox(j).bbox_cover(object_bbox).scale();
 
     // Find the child-node that has the least enlargement with the 
     // object's bbox
@@ -964,13 +952,13 @@ private:
 
       // Compute enlargement
       const double c = child_bbox.bbox_union(object_bbox)
-                     - child_bbox.area();
+                     - child_bbox.scale();
 
-      const double cover_i = node.bbox(i).bbox_cover(object_bbox).area();
+      const double cover_i = node.bbox(i).bbox_cover(object_bbox).scale();
 
       // Choose the entry, that needs the least enlargement to 
       // include the object's bbox
-      // In case of ties, use the entry with the smalles area
+      // In case of ties, use the entry with the smalles size
       if ( ( c < m ) ||
            ( EQ(c, m) && cover_i < cover_j ) )
       {
@@ -1077,24 +1065,8 @@ private:
     std::stable_sort(index.begin(), index.end(),
       [&bboxes](size_t i1, size_t i2)
     {
-      const BBox& bb_lhs = bboxes[i1];
-      const BBox& bb_rhs = bboxes[i2];
-
-      const double dx = bb_lhs.lowleft().x - bb_rhs.lowleft().x;
-
-      if ( dx < 0 )
-        return true;
-
-      if ( EQ0(dx) )
-      {
-        const double dy = bb_lhs.lowleft().y - bb_rhs.lowleft().y;
-        if ( dy < 0 )
-          return true;
-      }
-
-      return false;
+      return packing_sort_nearest(bboxes[i1], bboxes[i2]);
     });
-
 
     // Create new layer of parent nodes and fill distribute the given
     // child nodes to them
@@ -1130,6 +1102,28 @@ private:
     return std::move(parent_nodes);
 
   } // RTreeND::build_tree_bulk_insertion()
+
+
+  /*------------------------------------------------------------------ 
+  | Sort function to rank objects during bulk insertion (packing)
+  ------------------------------------------------------------------*/
+  static inline 
+  bool packing_sort_nearest(const BBox& lhs, const BBox& rhs)
+  {
+    VecND<T,N> delta = lhs.lowleft() - rhs.lowleft();
+
+    for (auto v : delta) 
+    {
+      if (v < T{})
+        return true;
+
+      if ( !EQ0(v) )
+        break;
+    }
+
+    return false;
+
+  } // packing_sort_nearest()
 
 
   /*------------------------------------------------------------------ 
