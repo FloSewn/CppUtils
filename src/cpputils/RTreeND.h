@@ -29,17 +29,75 @@ namespace CppUtils {
 static std::array<std::size_t,8> BBOXND_VTK_CONN_MAP 
 { 0, 1, 2, 3, 7, 6, 5, 4 };
 
+static inline long unsigned RTreeNodeID = 0;
+
+
+/*********************************************************************
+* This class defines a strategy for the sorting of RTree nodes
+* within a layer
+*********************************************************************/
+class NearestXSort
+{
+public:
+
+  /*------------------------------------------------------------------ 
+  | This function returns true, if the given left-hand sided 
+  | bounding box should be chosen, based on the nearest-X sort 
+  ------------------------------------------------------------------*/
+  template <typename CoordType, std::size_t Dim>
+  static inline
+  bool choose_bbox(const BBoxND<CoordType,Dim>& lhs, 
+                   const BBoxND<CoordType,Dim>& rhs)
+  {
+    VecND<CoordType,Dim> delta = lhs.lowleft() - rhs.lowleft();
+
+    for (auto v : delta) 
+    {
+      if (v < CoordType{})
+        return true;
+
+      if ( !EQ0(v) )
+        break;
+    }
+
+    return false;
+
+  } // choose_bbox()
+
+}; // NearestXSort
+
+
+
+
+
+/*********************************************************************
+* Forward declarations 
+*********************************************************************/
+template 
+<
+  typename    ObjectType,                  // Contained object
+  std::size_t M,                           // Max. element number 
+  typename    CoordType,                   // Coordinate type
+  std::size_t Dim,                         // Dimensions
+  typename    SortStrategy                 // Sorting strategy
+>
+class RTreeNodeND;
 
 template 
 <
-  typename          OBJ,  // Contained object
-  long unsigned int M,    // Maximum number of R-Tree elements
-  typename          T,    // Coordinate type
-  std::size_t       N     // Dimensions
+  typename    ObjectType,                  // Contained object
+  std::size_t M,                           // Max. element number 
+  typename    CoordType,                   // Coordinate type
+  std::size_t Dim,                         // Dimensions
+  typename    SortStrategy                 // Sorting strategy
 >
 class RTreeND;
 
-static inline long unsigned RTreeNodeID = 0;
+
+/*********************************************************************
+* Entry to store the data
+*********************************************************************/
+
 
 /*********************************************************************
 * References
@@ -63,22 +121,23 @@ static inline long unsigned RTreeNodeID = 0;
 *********************************************************************/
 template 
 <
-  typename          OBJ,  // Contained object
-  long unsigned int M,    // Maximum number of R-Tree elements
-  typename          T,    // Coordinate type
-  std::size_t       N     // Dimensions
+  typename    ObjectType,                  // Contained object
+  std::size_t M,                           // Max. element number 
+  typename    CoordType,                   // Coordinate type
+  std::size_t Dim,                         // Dimensions
+  typename    SortStrategy = NearestXSort  // Sorting strategy
 >
 class RTreeNodeND
 {
 public:
 
-  friend RTreeND<OBJ,M,T,N>;
+  friend RTreeND<ObjectType,M,CoordType,Dim,SortStrategy>;
 
-  using BBox     = BBoxND<T,N>;
-  using Node     = RTreeNodeND<OBJ,M,T,N>;
+  using BBox     = BBoxND<CoordType,Dim>;
+  using Node     = RTreeNodeND<ObjectType,M,CoordType,Dim,SortStrategy>;
   using BBoxes   = std::array<BBox,M>;
   using Children = std::array<std::unique_ptr<Node>,M>;
-  using Objects  = std::array<const OBJ*,M>;
+  using Objects  = std::array<const ObjectType*,M>;
 
   /*------------------------------------------------------------------ 
   | Constructor
@@ -101,8 +160,8 @@ public:
   const Node* parent() const { return parent_; }
 
   bool is_leaf() const { return is_leaf_; }
-  long unsigned int n_entries() const { return n_entries_; }
-  long unsigned int id() const { return id_; }
+  std::size_t n_entries() const { return n_entries_; }
+  std::size_t id() const { return id_; }
 
   /*------------------------------------------------------------------ 
   | Setter
@@ -111,8 +170,15 @@ public:
   void parent(const Node& p) { parent_ = const_cast<Node*>(&p); }
 
   void is_leaf(bool t) { is_leaf_ = t; }
-  void n_entries(long unsigned int n) { n_entries_ = n; }
-  void id(long unsigned int i) { id_ = i; }
+  void n_entries(std::size_t n) { n_entries_ = n; }
+  void id(std::size_t i) { id_ = i; }
+
+  /*------------------------------------------------------------------ 
+  | Return the node in the same layer, that is located to the left
+  ------------------------------------------------------------------*/
+  Node* get_left_node() const 
+  {
+  } // get_left_node()
 
   /*------------------------------------------------------------------ 
   | Function used to estimate the tree height
@@ -131,13 +197,13 @@ public:
   /*------------------------------------------------------------------ 
   | Export the node data to the VTK format
   ------------------------------------------------------------------*/
-  std::size_t export_to_vtu(std::vector<T>&           points,
+  std::size_t export_to_vtu(std::vector<CoordType>&           points,
                             std::vector<std::size_t>& connectivity,
                             std::vector<std::size_t>& offsets,
                             std::vector<std::size_t>& types,
                             std::vector<int>&         heights,
                             std::size_t               cur_height,
-                            std::size_t               cur_offset=(1<<N))
+                            std::size_t               cur_offset=(1<<Dim))
   {
     // Call method for child nodes
     if ( !is_leaf() )
@@ -156,10 +222,10 @@ public:
 
       for (std::size_t j = 0; j < vertices.size(); ++j)
       {
-        for (std::size_t k = 0; k < N; ++k)
+        for (std::size_t k = 0; k < Dim; ++k)
           points.push_back(vertices[j][k]);
 
-        for (std::size_t k = N; k < 3; ++k)
+        for (std::size_t k = Dim; k < 3; ++k)
           points.push_back( -1.0f * cur_height );
 
         connectivity.push_back( v_start + BBOXND_VTK_CONN_MAP[ j ]);
@@ -169,13 +235,13 @@ public:
       offsets.push_back( cur_offset );
       cur_offset += vertices.size();
 
-      if (N == 3)
+      if (Dim == 3)
         types.push_back( 12 ); // VTK_HEXAHEDRON
 
-      if (N == 2)
+      if (Dim == 2)
         types.push_back( 9 ); // VTK_QUAD
 
-      if (N == 1)
+      if (Dim == 1)
         types.push_back( 3 ); // VTK_LINE
 
       heights.push_back( cur_height );
@@ -209,8 +275,8 @@ public:
 
     for (std::size_t i = 0; i < n_entries(); ++i)
     {
-      const VecND<T,N>& ll = bbox(i).lowleft();
-      const VecND<T,N>& ur = bbox(i).upright();
+      const VecND<CoordType,Dim>& ll = bbox(i).lowleft();
+      const VecND<CoordType,Dim>& ur = bbox(i).upright();
 
       os << std::setprecision(5) << std::fixed 
          << ll.x << ", " << ll.y << ", " 
@@ -284,15 +350,15 @@ public:
   /*------------------------------------------------------------------ 
   | Access objects
   ------------------------------------------------------------------*/
-  OBJ& object(std::size_t i) 
+  ObjectType& object(std::size_t i) 
   { 
     ASSERT( i < n_entries(), 
         "RTreeNodeND: Unable to access key at position " 
         + std::to_string(i) );
-    return *(const_cast<OBJ*>(objects_[i])); 
+    return *(const_cast<ObjectType*>(objects_[i])); 
   }
 
-  const OBJ& object(std::size_t i) const 
+  const ObjectType& object(std::size_t i) const 
   { 
     ASSERT( i < n_entries(), 
         "RTreeNodeND: Unable to access key at position " 
@@ -352,7 +418,7 @@ public:
   /*------------------------------------------------------------------ 
   | Set objects
   ------------------------------------------------------------------*/
-  void object(std::size_t i, const OBJ& obj)
+  void object(std::size_t i, const ObjectType& obj)
   { 
     ASSERT( i < n_entries(), 
         "RTreeNodeND: Unable to set object at position " 
@@ -374,13 +440,33 @@ public:
   /*------------------------------------------------------------------ 
   | Add new object to the node
   ------------------------------------------------------------------*/
-  void add_object(const OBJ& object)
+  void add_object(const ObjectType& object)
   {
-    std::size_t i = this->n_entries();
-    ASSERT( i <= M, "RTreeNodeND: Can not add more than " 
+    const std::size_t n_entries = this->n_entries();
+    ASSERT( n_entries < M, "RTreeNodeND: Can not add more than " 
         + std::to_string(M) + " objects.");
 
-    this->n_entries( i + 1 );
+    // Obtain index i at which all former object entries are located
+    // closer to the origin
+    std::size_t i = 0;
+
+    while ( i < n_entries )
+    {
+      if ( SortStrategy::choose_bbox(object.bbox(), this->bbox(i)) )
+        break;
+      ++i;
+    }
+
+    this->n_entries( n_entries + 1 );
+
+    // Shift remaining entries to the right
+    for (std::size_t j = n_entries; j > i; --j)
+    {
+      this->bbox(j, this->bbox(j-1));
+      this->object(i, this->object(j-1));
+    }
+
+    // Finally add the new object
     this->bbox(i, object.bbox()); 
     this->object(i, object);
 
@@ -396,8 +482,8 @@ private:
   Node*               parent_    { nullptr };
 
   bool                is_leaf_   { true };
-  long unsigned int   n_entries_ { 0 };
-  long unsigned int   id_        { 0 };
+  std::size_t   n_entries_ { 0 };
+  std::size_t   id_        { 0 };
 
 }; // RTreeNodeND
 
@@ -408,17 +494,18 @@ private:
 *********************************************************************/
 template 
 <
-  typename          OBJ,  // Contained object
-  long unsigned int M,    // Maximum number of R-Tree elements
-  typename          T,    // Coordinate type
-  std::size_t       N     // Dimensions
+  typename    ObjectType,                  // Contained object
+  std::size_t M,                           // Max. element number 
+  typename    CoordType,                   // Coordinate type
+  std::size_t Dim,                         // Dimensions
+  typename    SortStrategy = NearestXSort  // Sorting strategy
 >
 class RTreeND
 {
 public:
 
-  using BBox       = BBoxND<T,N>;
-  using Node       = RTreeNodeND<OBJ,M,T,N>;
+  using BBox       = BBoxND<CoordType,Dim>;
+  using Node       = RTreeNodeND<ObjectType,M,CoordType,Dim,SortStrategy>;
   using NodeVector = std::vector<std::unique_ptr<Node>>;
 
   /*------------------------------------------------------------------ 
@@ -464,7 +551,7 @@ public:
     if (file_name.substr(file_name.find_last_of(".") + 1) != "vtu")
       file_name += ".vtu";
     
-    std::vector<T> points {};
+    std::vector<CoordType> points {};
     std::vector<std::size_t> connectivity {};
     std::vector<std::size_t> offsets {};
     std::vector<std::size_t> types {};
@@ -505,18 +592,87 @@ public:
 
   } // RTreeND::write_to_file()
 
+
+
   /*------------------------------------------------------------------ 
-  | Search the leaf node that contains a given object in the tree
+  | 
+  | 
   ------------------------------------------------------------------*/
-  const Node* search_node(const OBJ& obj,
-                          const Node& node) const
+  bool remove(const ObjectType& obj)
   {
-  } // RTreeND::search_node()
+    if ( root_->n_entries() < 1 )
+      return false;
+
+    // Check if the object is contained in the R-Tree region
+    if ( !root_->bbox().bbox_inside_touch( obj.bbox() ) )
+      return false;
+
+    // Find the node & index of the respective entry to remove
+    std::size_t i_entry {};
+    Node* node = find_object_to_remove(obj, node, i_entry);
+
+    // Return if no node is found 
+    if ( node == nullptr )
+      return false;
+
+    // Remove entry from node
+    //
+    // If node.n_entries() >= M/2 + 1
+    //   Simply remove the entry and maybe shift following 
+    //   entries to the front
+    // Else
+    //   Compute number N of entries among all nodes that belong
+    //   to the curren node's parent 
+    //
+    //   Either take an entry from the left node in the current layer
+    //   -> take_from_left_node()
+    //
+    //   Otherwise if not enough entries, remove layer and distribute
+    //   remaining entries among nodes in next layer
+    //
+    //remove_node_entry(node, i_entry);
+
+
+
+  } // RTreeND::remove(ObjectType)
+
+
+  /*------------------------------------------------------------------ 
+  | 
+  ------------------------------------------------------------------*/
+  Node* find_object_to_remove(const ObjectType& obj, 
+                              const Node& node,
+                              std::size_t &i_entry) 
+  {
+    // Node is a leaf node: Check if the given object is one of 
+    // the node's entries
+    if ( node.is_leaf() )
+    {
+      for (std::size_t i = 0; i < node.n_entries(); ++i)
+        if ( &obj == &(node.object(i)) )
+        {
+          i_entry = i;
+          return &node;
+        }
+      return nullptr;
+    }
+
+    // Otherwise: Check if the given object is contained in one
+    // of the node's children
+    for (std::size_t i = 0; i < node.n_entries(); ++i)
+      if ( node.bbox(i).bbox_inside_touch( obj.bbox() ) )
+        return find_object_to_remove(obj, node.child(i), i_entry);
+
+    return nullptr;
+
+  } // RTreeND::find_object_to_remove()
+
+
 
   /*------------------------------------------------------------------ 
   | Insert a new object into the RTree structure
   ------------------------------------------------------------------*/
-  void insert(const OBJ& object)
+  void insert(const ObjectType& object)
   {
     // Handle the case where the root node is full
     if ( root_->n_entries() == M )
@@ -532,22 +688,22 @@ public:
   /*------------------------------------------------------------------ 
   | Insert a bulk of objects into the RTree structure
   ------------------------------------------------------------------*/
-  void insert(const std::vector<OBJ>& objects)
+  void insert(const std::vector<ObjectType>& objects)
   {
     // 1) Put all objects in a temporary container, which will be 
     //    sorted
-    std::vector<const OBJ*> objects_ptr;
+    std::vector<const ObjectType*> objects_ptr;
 
-    for ( const OBJ& obj : objects )
+    for ( const ObjectType& obj : objects )
       objects_ptr.push_back( &obj );
 
 
     // 2) map all N objects in the rank space
     //    and sort them according to their score
     std::sort(objects_ptr.begin(), objects_ptr.end(),
-              [](const OBJ* lhs, const OBJ* rhs)
+              [](const ObjectType* lhs, const ObjectType* rhs)
     {
-      return packing_sort_nearest((*lhs).bbox(), (*rhs).bbox());
+      return SortStrategy::choose_bbox((*lhs).bbox(), (*rhs).bbox());
     });
 
 
@@ -555,7 +711,7 @@ public:
     NodeVector nodes {};
     size_t i = 0; 
 
-    for ( const OBJ* obj : objects_ptr )
+    for ( const ObjectType* obj : objects_ptr )
     {
       if ( i == 0 )
         nodes.push_back( std::make_unique<Node>(RTreeNodeID++) );
@@ -901,7 +1057,7 @@ private:
   /*------------------------------------------------------------------ 
   | Insert a new object into the RTree structure
   ------------------------------------------------------------------*/
-  void insert_nonfull(Node& node, const OBJ& object)
+  void insert_nonfull(Node& node, const ObjectType& object)
   {
     const BBox& bb_obj = object.bbox();
 
@@ -1065,7 +1221,7 @@ private:
     std::stable_sort(index.begin(), index.end(),
       [&bboxes](size_t i1, size_t i2)
     {
-      return packing_sort_nearest(bboxes[i1], bboxes[i2]);
+      return SortStrategy::choose_bbox(bboxes[i1], bboxes[i2]);
     });
 
     // Create new layer of parent nodes and fill distribute the given
@@ -1105,28 +1261,6 @@ private:
 
 
   /*------------------------------------------------------------------ 
-  | Sort function to rank objects during bulk insertion (packing)
-  ------------------------------------------------------------------*/
-  static inline 
-  bool packing_sort_nearest(const BBox& lhs, const BBox& rhs)
-  {
-    VecND<T,N> delta = lhs.lowleft() - rhs.lowleft();
-
-    for (auto v : delta) 
-    {
-      if (v < T{})
-        return true;
-
-      if ( !EQ0(v) )
-        break;
-    }
-
-    return false;
-
-  } // packing_sort_nearest()
-
-
-  /*------------------------------------------------------------------ 
   | Attributes
   ------------------------------------------------------------------*/
   std::unique_ptr<Node> root_ {nullptr};
@@ -1139,9 +1273,15 @@ private:
 /*********************************************************************
 * ostream
 *********************************************************************/
-template <typename OBJ, long unsigned int M, typename T, std::size_t N>
+template 
+<
+  typename    ObjectType, 
+  std::size_t M, 
+  typename    CoordType, 
+  std::size_t Dim
+>
 std::ostream& operator<<(std::ostream& os, 
-                         const RTreeND<OBJ,M,T,N>& tree)
+                         const RTreeND<ObjectType,M,CoordType,Dim>& tree)
 {
   std::size_t height = tree.height();
 

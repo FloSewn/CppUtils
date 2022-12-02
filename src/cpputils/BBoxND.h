@@ -221,6 +221,24 @@ public:
   }
 
   /*------------------------------------------------------------------ 
+  | Check if a given BBoxNDs is contained inside this BBoxNDs 
+  ------------------------------------------------------------------*/
+  bool bbox_inside(const BBoxND<T,N>& bbox) const
+  {
+    return (  point_inside(bbox.lowleft()) 
+           && point_inside(bbox.upright()) );
+  }
+
+  /*------------------------------------------------------------------ 
+  | Check if a given BBoxNDs is contained inside this BBoxNDs 
+  ------------------------------------------------------------------*/
+  bool bbox_inside_touch(const BBoxND<T,N>& bbox) const
+  {
+    return (  point_inside_touch(bbox.lowleft()) 
+           && point_inside_touch(bbox.upright()) );
+  }
+
+  /*------------------------------------------------------------------ 
   | Check if a point coordinate is within the BBoxND
   ------------------------------------------------------------------*/
   bool point_inside(const Vec& p) const
