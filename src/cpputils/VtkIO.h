@@ -80,6 +80,7 @@ public:
   virtual size_t dim() const = 0;
   virtual const char* type() const = 0;
   virtual void write_data(std::ofstream& of, size_t n_max) const = 0;
+  virtual ~VtkIODataInterface() {};
 };
 
 template<class T>
@@ -158,8 +159,8 @@ public:
                      const std::string& name,
                      size_t dim)
   {
-    cell_data_.emplace_back( 
-      new VtkIOData<T> { data, name, dim }
+    cell_data_.push_back( 
+        std::make_unique<VtkIOData<T>>(data, name, dim)
     );
   }
 
@@ -171,8 +172,8 @@ public:
                      const std::string& name,
                      size_t dim)
   {
-    point_data_.emplace_back( 
-      new VtkIOData<T> { data, name, dim }
+    point_data_.push_back(
+        std::make_unique<VtkIOData<T>>(data, name, dim)
     );
   }
 

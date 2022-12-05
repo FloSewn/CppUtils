@@ -41,6 +41,30 @@ class NearestXSort
 public:
 
   /*------------------------------------------------------------------ 
+  | 
+  ------------------------------------------------------------------*/
+  template <typename ObjectType>
+  static inline
+  std::vector<const ObjectType*> 
+  sort(const std::vector<ObjectType>& objects)
+  {
+    std::vector<const ObjectType*> sorted_objects;
+
+    for ( const ObjectType& obj : objects )
+      sorted_objects.push_back( &obj );
+
+    std::sort(sorted_objects.begin(), sorted_objects.end(),
+              [](const ObjectType* lhs, const ObjectType* rhs)
+    {
+      return choose_bbox((*lhs).bbox(), (*rhs).bbox());
+    });
+
+    return std::move( sorted_objects );
+
+  } // sort()
+
+
+  /*------------------------------------------------------------------ 
   | This function returns true, if the given left-hand sided 
   | bounding box should be chosen, based on the nearest-X sort 
   ------------------------------------------------------------------*/
@@ -95,9 +119,68 @@ class RTreeND;
 
 
 /*********************************************************************
-* Entry to store the data
+* Forward declarations 
 *********************************************************************/
+template 
+<
+  typename    ObjectType,                  // Contained object
+  std::size_t M,                           // Max. element number 
+  typename    CoordType,                   // Coordinate type
+  std::size_t Dim,                         // Dimensions
+  typename    SortStrategy                 // Sorting strategy
+>
+class RTreeEntryND
+{
+  friend RTreeND<ObjectType,M,CoordType,Dim,SortStrategy>;
+  friend RTreeNodeND<ObjectType,M,CoordType,Dim,SortStrategy>;
 
+public:
+  using BBox     = BBoxND<CoordType,Dim>;
+  using Node     = RTreeNodeND<ObjectType,M,CoordType,Dim,SortStrategy>;
+  using Node_ptr = std::unique_ptr<Node>;
+
+  /*------------------------------------------------------------------ 
+  | Constructor
+  ------------------------------------------------------------------*/
+  RTreeEntryND() { }
+
+  /*------------------------------------------------------------------ 
+  | Setter
+  ------------------------------------------------------------------*/
+  void bbox(const BBox& b) { bbox_ = b; }
+  void child(Node_ptr& c) { child_ = std::move(c); }
+  void object(const ObjectType* obj) { object_ = obj; }
+  void parent(Node* p) { parent_ = p; }
+
+  /*------------------------------------------------------------------ 
+  | Getter
+  ------------------------------------------------------------------*/
+  BBox& bbox() { return bbox_; }
+  const BBox& bbox() const { return bbox_; } 
+
+  Node_ptr& child_ptr() { return child_; }
+  const Node_ptr& child_ptr() const { return child_; }
+
+  Node& child() { return *child_; }
+  const Node& child() const { return *child_; }
+
+  const ObjectType* object() const { return object_; }
+
+  Node* parent() { return parent_; }
+  const Node* parent() const { return parent_; }
+
+
+private:
+  /*------------------------------------------------------------------ 
+  | Attributes
+  ------------------------------------------------------------------*/
+  BBox               bbox_   {};
+  Node_ptr           child_  { nullptr };
+  const ObjectType*  object_ { nullptr };
+  Node*              parent_ { nullptr };
+
+
+}; // RTreeEntryND
 
 /*********************************************************************
 * References
@@ -129,15 +212,15 @@ template
 >
 class RTreeNodeND
 {
-public:
-
   friend RTreeND<ObjectType,M,CoordType,Dim,SortStrategy>;
+  friend RTreeEntryND<ObjectType,M,CoordType,Dim,SortStrategy>;
 
+public:
   using BBox     = BBoxND<CoordType,Dim>;
   using Node     = RTreeNodeND<ObjectType,M,CoordType,Dim,SortStrategy>;
-  using BBoxes   = std::array<BBox,M>;
-  using Children = std::array<std::unique_ptr<Node>,M>;
-  using Objects  = std::array<const ObjectType*,M>;
+  using Node_ptr = std::unique_ptr<Node>;
+  using Entry    = RTreeEntryND<ObjectType,M,CoordType,Dim,SortStrategy>;
+  using Entries  = std::array<Entry,M>;
 
   /*------------------------------------------------------------------ 
   | Constructor
@@ -147,14 +230,8 @@ public:
   /*------------------------------------------------------------------ 
   | Getter
   ------------------------------------------------------------------*/
-  BBoxes& bboxes() { return bboxes_; }
-  const BBoxes& bboxes() const { return bboxes_; }
-
-  Children& children() { return children_; }
-  const Children& children() const { return children_; }
-
-  Objects& objects() { return objects_; }
-  const Objects& objects() const { return objects_; }
+  Entries& entries() { return entries_; }
+  const Entries& entries() const { return entries_; }
 
   Node* parent() { return parent_; }
   const Node* parent() const { return parent_; }
@@ -178,6 +255,11 @@ public:
   ------------------------------------------------------------------*/
   Node* get_left_node() const 
   {
+    if (parent_ == nullptr)
+      return nullptr;
+
+    Node& parent_node = *parent_;
+
   } // get_left_node()
 
   /*------------------------------------------------------------------ 
@@ -197,7 +279,7 @@ public:
   /*------------------------------------------------------------------ 
   | Export the node data to the VTK format
   ------------------------------------------------------------------*/
-  std::size_t export_to_vtu(std::vector<CoordType>&           points,
+  std::size_t export_to_vtu(std::vector<CoordType>&   points,
                             std::vector<std::size_t>& connectivity,
                             std::vector<std::size_t>& offsets,
                             std::vector<std::size_t>& types,
@@ -344,7 +426,7 @@ public:
     ASSERT( i < n_entries(), 
         "RTreeNodeND: Unable to access key at position " 
         + std::to_string(i) );
-    return bboxes_[i]; 
+    return entries_[i].bbox(); 
   }
 
   /*------------------------------------------------------------------ 
@@ -355,7 +437,7 @@ public:
     ASSERT( i < n_entries(), 
         "RTreeNodeND: Unable to access key at position " 
         + std::to_string(i) );
-    return *(const_cast<ObjectType*>(objects_[i])); 
+    return *(const_cast<ObjectType*>(entries_[i].object())); 
   }
 
   const ObjectType& object(std::size_t i) const 
@@ -363,26 +445,26 @@ public:
     ASSERT( i < n_entries(), 
         "RTreeNodeND: Unable to access key at position " 
         + std::to_string(i) );
-    return *objects_[i]; 
+    return *(entries_[i].object());
   }
 
   /*------------------------------------------------------------------ 
   | Access children pointers
   ------------------------------------------------------------------*/
-  std::unique_ptr<Node>& child_ptr(std::size_t i) 
+  Node_ptr& child_ptr(std::size_t i) 
   { 
     ASSERT( i < n_entries(), 
         "RTreeNodeND: Unable to access child at position " 
         + std::to_string(i) );
-    return children_[i]; 
+    return entries_[i].child_ptr();
   }
 
-  const std::unique_ptr<Node>& child_ptr(std::size_t i) const
+  const Node_ptr& child_ptr(std::size_t i) const
   { 
     ASSERT( i < n_entries(), 
         "RTreeNodeND: Unable to access child at position " 
         + std::to_string(i) );
-    return children_[i]; 
+    return entries_[i].child_ptr(); 
   }
 
   /*------------------------------------------------------------------ 
@@ -393,7 +475,7 @@ public:
     ASSERT( i < n_entries(), 
         "RTreeNodeND: Unable to access child at position " 
         + std::to_string(i) );
-    return *children_[i].get(); 
+    return entries_[i].child();
   }
 
   const Node& child(std::size_t i) const 
@@ -401,7 +483,7 @@ public:
     ASSERT( i < n_entries(), 
         "RTreeNodeND: Unable to access child at position " 
         + std::to_string(i) );
-    return *children_[i].get(); 
+    return entries_[i].child();
   }
 
   /*------------------------------------------------------------------ 
@@ -412,7 +494,7 @@ public:
     ASSERT( i < n_entries(), 
         "RTreeNodeND: Unable to access key at position " 
         + std::to_string(i) );
-    bboxes_[i] = b; 
+    entries_[i].bbox(b);
   }
 
   /*------------------------------------------------------------------ 
@@ -423,7 +505,7 @@ public:
     ASSERT( i < n_entries(), 
         "RTreeNodeND: Unable to set object at position " 
         + std::to_string(i) );
-    objects_[i] = &obj;
+    entries_[i].object(&obj);
   }
 
   /*------------------------------------------------------------------ 
@@ -434,7 +516,7 @@ public:
     ASSERT( i < n_entries(), 
         "RTreeNodeND: Unable to set child at position " 
         + std::to_string(i) );
-    children_[i] = std::move(c);
+    entries_[i].child(c);
   }
 
   /*------------------------------------------------------------------ 
@@ -472,18 +554,56 @@ public:
 
   } // add_object()
 
+  /*------------------------------------------------------------------ 
+  | Add new child to the node
+  ------------------------------------------------------------------*/
+  void add_child(Node_ptr& child_ptr)
+  {
+    Node& child = *child_ptr;
+    const std::size_t n_entries = this->n_entries();
+
+    ASSERT( n_entries < M, "RTreeNodeND: Can not add more than " 
+        + std::to_string(M) + " children.");
+
+    // Obtain index i at which all former object entries are located
+    // closer to the origin
+    std::size_t i = 0;
+
+    while ( i < n_entries )
+    {
+      if ( SortStrategy::choose_bbox(child.bbox(), this->bbox(i)) )
+        break;
+      ++i;
+    }
+
+    this->n_entries( n_entries + 1 );
+
+    // Shift remaining entries to the right
+    for (std::size_t j = n_entries; j > i; --j)
+    {
+      this->bbox(j, this->bbox(j-1));
+      this->child(i, this->child_ptr(j-1));
+    }
+
+    // Finally add the new child
+    this->bbox(i, child.bbox()); 
+    this->child(i, child_ptr);
+    this->is_leaf( false );
+    child.parent( *this );
+
+  } // add_child()
+
 private:
   /*------------------------------------------------------------------ 
   | Attributes
   ------------------------------------------------------------------*/
-  BBoxes              bboxes_    { };
-  Children            children_  { nullptr };
-  Objects             objects_   { nullptr };
+  Entries             entries_   { };
   Node*               parent_    { nullptr };
 
   bool                is_leaf_   { true };
-  std::size_t   n_entries_ { 0 };
-  std::size_t   id_        { 0 };
+  std::size_t         n_entries_ { 0 };
+  std::size_t         id_        { 0 };
+  std::size_t         index_     { 0 };
 
 }; // RTreeNodeND
 
@@ -690,58 +810,41 @@ public:
   ------------------------------------------------------------------*/
   void insert(const std::vector<ObjectType>& objects)
   {
-    // 1) Put all objects in a temporary container, which will be 
-    //    sorted
-    std::vector<const ObjectType*> objects_ptr;
+    // Put all objects in a temporary container, which will be 
+    // sorted
+    std::vector<const ObjectType*> sorted_objects 
+      = SortStrategy::sort( objects );
 
-    for ( const ObjectType& obj : objects )
-      objects_ptr.push_back( &obj );
+    // Group objects into (N / M) leaf nodes
+    NodeVector node_layer {};
+    node_layer.push_back( std::make_unique<Node>(RTreeNodeID++) );
 
-
-    // 2) map all N objects in the rank space
-    //    and sort them according to their score
-    std::sort(objects_ptr.begin(), objects_ptr.end(),
-              [](const ObjectType* lhs, const ObjectType* rhs)
+    for ( const ObjectType* obj : sorted_objects )
     {
-      return SortStrategy::choose_bbox((*lhs).bbox(), (*rhs).bbox());
-    });
-
-
-    // 3) Group objects into (N / M) leaf nodes
-    NodeVector nodes {};
-    size_t i = 0; 
-
-    for ( const ObjectType* obj : objects_ptr )
-    {
-      if ( i == 0 )
-        nodes.push_back( std::make_unique<Node>(RTreeNodeID++) );
-
-      Node& cur_leaf = *nodes.back().get();
+      Node& cur_leaf = *node_layer.back().get();
 
       cur_leaf.add_object( *obj );
-        
-      ++i;
 
-      if ( i >= M-1 )
-        i = 0;
+      if ( cur_leaf.n_entries() >= M-1 )
+        node_layer.push_back( std::make_unique<Node>(RTreeNodeID++) );
     }
 
-    // 4) Recursively pack leaf nodes into nodes at next level until 
-    //    root is reached
-    while ( nodes.size() > M )
-      nodes = build_tree_bulk_insertion(nodes);
+    // Recursively pack nodes into a node layer at the 
+    // next level until root is reached
+    while ( node_layer.size() > M )
+      node_layer = build_tree_bulk_insertion(node_layer);
 
-    // 5) Place remaining nodes into root node
-    for ( i = 0; i < nodes.size(); ++i )
+    // Place remaining nodes into root node
+    for ( std::size_t i = 0; i < node_layer.size(); ++i )
     {
       Node& root = *root_;
-      Node& cur_child = *nodes[i];
+      Node& cur_child = *node_layer[i];
 
       cur_child.parent( root );
       root.n_entries( i + 1 );
       root.is_leaf( false );
       root.bbox(i, cur_child.bbox() );
-      root.child(i, nodes[i] );
+      root.child(i, node_layer[i] );
     }
       
   } // RTreeND::insert()
@@ -772,9 +875,10 @@ private:
 
     // This is the new node, which will get half of the entries 
     // of "child_node"
-    auto new_node = std::make_unique<Node>(RTreeNodeID++);
-    (*new_node).is_leaf( child_node.is_leaf() );
-    (*new_node).parent( parent_node );
+    auto new_node_ptr = std::make_unique<Node>(RTreeNodeID++);
+    Node& new_node = *new_node_ptr;
+
+    new_node.is_leaf( child_node.is_leaf() );
 
     // This array contains the information, which entries of the 
     // child node "child_node" will be added to "new_node"
@@ -786,16 +890,10 @@ private:
       if ( !add_to_new[j] )
         continue;
 
-      size_t n = (*new_node).n_entries();
-      (*new_node).n_entries( n+1 );
-      (*new_node).object( n, child_node.object(j) );
-      (*new_node).bbox( n, child_node.bbox(j) );
-
-      if ( !(*new_node).is_leaf() )
-      {
-        (*new_node).child( n, child_node.child_ptr(j) );
-        (*new_node).child(n).parent( *new_node );
-      }
+      if ( new_node.is_leaf() )
+        new_node.add_object( child_node.object(j) );
+      else
+        new_node.add_child( child_node.child_ptr(j) );
     }
 
     // Re-distribute remining entries in "child_node"
@@ -816,9 +914,7 @@ private:
     }
 
     // Add "new_node" and its bounding boxx to "parent_node"
-    size_t n = parent_node.n_entries();
-    parent_node.n_entries( n + 1 );
-    parent_node.child( n, new_node );
+    parent_node.add_child( new_node_ptr );
 
     // Compute the covering bboxes for all entries of "parent node"
     for (std::size_t j = 0; j < parent_node.n_entries(); ++j)
@@ -1178,14 +1274,12 @@ private:
   void add_root_node()
   {
     auto new_root = std::make_unique<Node>(RTreeNodeID++);
-    (*new_root).is_leaf( false ); 
-    (*new_root).n_entries( 1 );
-    (*new_root).child(0, root_);
+
+    (*new_root).add_child( root_ );
     root_ = std::move(new_root);
-    root_->child(0).parent(*root_);
+    //root_->child(0).parent(*root_);   // maybe needed?
 
   } // RTreeND::add_root_node()
-
 
   /*------------------------------------------------------------------ 
   | This function is called during the packing insertion of the tree.
@@ -1228,31 +1322,21 @@ private:
     // child nodes to them
     NodeVector parent_nodes {};
 
-    size_t i = 0;
+    parent_nodes.push_back(std::make_unique<Node>(RTreeNodeID++));
 
-    for ( size_t j = 0; j < children.size(); ++j )
+    // Performance might be better if we add from the back...
+    for ( size_t i = 0; i < children.size(); ++i )
     {
-      Node& cur_child = *children[index[j]];
-
-      if ( i == 0 )
+      if ( parent_nodes.back().get()->n_entries() >= M-1 )
       {
         parent_nodes.push_back(
           std::make_unique<Node>(RTreeNodeID++)
         );
       }
 
-      Node& cur_node  = *parent_nodes.back().get();
+      Node& cur_node = *parent_nodes.back().get();
 
-      cur_child.parent( cur_node );
-      cur_node.n_entries( i + 1 );
-      cur_node.is_leaf( false );
-      cur_node.child(i, children[index[j]]);
-      cur_node.bbox(i, bboxes[index[j]]);
-
-      ++i;
-
-      if ( i >= M-1 )
-        i = 0;
+      cur_node.add_child( children[index[i]] );
     }
 
     return std::move(parent_nodes);

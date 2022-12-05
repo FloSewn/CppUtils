@@ -174,6 +174,7 @@ void constructor()
   for (TestRect& r : rectangles)
     tree.insert( r );
 
+
   tree.print(std::cout);
 
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
@@ -223,8 +224,6 @@ void bulk_insertion_2d()
 
   tree.write_to_vtu( file_name_vtu );
 
-
-
 } // bulk_insertion_2d()
 
 /*--------------------------------------------------------------------
@@ -267,9 +266,9 @@ void bulk_insertion_3d()
 *********************************************************************/
 void run_tests_RTreeND()
 {
-  //RTreeNDTests::constructor();
+  RTreeNDTests::constructor();
 
-  //RTreeNDTests::bulk_insertion_2d();
+  RTreeNDTests::bulk_insertion_2d();
 
   RTreeNDTests::bulk_insertion_3d();
 
