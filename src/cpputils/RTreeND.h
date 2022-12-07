@@ -9,6 +9,7 @@
 
 #include <memory>    // std::unique_ptr
 #include <array>     // std::array
+#include <vector>    // std::vector
 #include <stdexcept> // std::runtime_error
 #include <iomanip>   // std::setprecision
 #include <iostream>  // std::to_string
@@ -528,15 +529,16 @@ public:
     ASSERT( n_entries < M, "RTreeNodeND: Can not add more than " 
         + std::to_string(M) + " objects.");
 
-    // Obtain index i at which all former object entries are located
-    // closer to the origin
-    std::size_t i = 0;
+    //std::size_t i = 0;
+    std::size_t i = n_entries;
 
-    while ( i < n_entries )
+    // Obtain index i at which all former object entries are located
+    // closer to the origin. Start searching from the back (faster)
+    while ( i > 0 )
     {
-      if ( SortStrategy::choose_bbox(object.bbox(), this->bbox(i)) )
+      if ( SortStrategy::choose_bbox(this->bbox(i-1), object.bbox()) )
         break;
-      ++i;
+      --i;
     }
 
     this->n_entries( n_entries + 1 );
@@ -545,7 +547,7 @@ public:
     for (std::size_t j = n_entries; j > i; --j)
     {
       this->bbox(j, this->bbox(j-1));
-      this->object(i, this->object(j-1));
+      this->child(i, this->child_ptr(j-1));
     }
 
     // Finally add the new object
@@ -557,7 +559,7 @@ public:
   /*------------------------------------------------------------------ 
   | Add new child to the node
   ------------------------------------------------------------------*/
-  void add_child(Node_ptr& child_ptr)
+  void add_child(Node_ptr& child_ptr, bool sort=true)
   {
     Node& child = *child_ptr;
     const std::size_t n_entries = this->n_entries();
@@ -565,15 +567,15 @@ public:
     ASSERT( n_entries < M, "RTreeNodeND: Can not add more than " 
         + std::to_string(M) + " children.");
 
-    // Obtain index i at which all former object entries are located
-    // closer to the origin
-    std::size_t i = 0;
+    std::size_t i = n_entries;
 
-    while ( i < n_entries )
+    // Obtain index i at which all former object entries are located
+    // closer to the origin. Start searching from the back (faster)
+    while ( i > 0 )
     {
-      if ( SortStrategy::choose_bbox(child.bbox(), this->bbox(i)) )
+      if ( SortStrategy::choose_bbox(this->bbox(i-1), child.bbox()) )
         break;
-      ++i;
+      --i;
     }
 
     this->n_entries( n_entries + 1 );
