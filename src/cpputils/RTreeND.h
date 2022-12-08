@@ -94,7 +94,6 @@ public:
 
 
 
-
 /*********************************************************************
 * Forward declarations 
 *********************************************************************/
@@ -180,7 +179,6 @@ private:
   const ObjectType*  object_ { nullptr };
   Node*              parent_ { nullptr };
 
-
 }; // RTreeEntryND
 
 /*********************************************************************
@@ -241,6 +239,12 @@ public:
   std::size_t n_entries() const { return n_entries_; }
   std::size_t id() const { return id_; }
 
+  Node* left() { return left_; }
+  const Node* left() const { return left_; }
+
+  Node* right() { return right_; }
+  const Node* right() const { return right_; }
+
   /*------------------------------------------------------------------ 
   | Setter
   ------------------------------------------------------------------*/
@@ -251,17 +255,8 @@ public:
   void n_entries(std::size_t n) { n_entries_ = n; }
   void id(std::size_t i) { id_ = i; }
 
-  /*------------------------------------------------------------------ 
-  | Return the node in the same layer, that is located to the left
-  ------------------------------------------------------------------*/
-  Node* get_left_node() const 
-  {
-    if (parent_ == nullptr)
-      return nullptr;
-
-    Node& parent_node = *parent_;
-
-  } // get_left_node()
+  void left(Node& n) { left_ = &n; }
+  void right(Node& n) { right_ = &n; }
 
   /*------------------------------------------------------------------ 
   | Function used to estimate the tree height
@@ -593,6 +588,20 @@ public:
     this->is_leaf( false );
     child.parent( *this );
 
+    // Set connectivity between child nodes
+    if ( i > 0 )
+    {
+      child.left( this->child(i-1) );
+      this->child(i-1).right( child );
+    }
+    
+    if ( i < this->n_entries() - 1 )
+    {
+      child.right( this->child(i+1) );
+      this->child(i+1).left( child );
+    }
+
+
   } // add_child()
 
 private:
@@ -605,7 +614,8 @@ private:
   bool                is_leaf_   { true };
   std::size_t         n_entries_ { 0 };
   std::size_t         id_        { 0 };
-  std::size_t         index_     { 0 };
+  Node*               left_      { nullptr };
+  Node*               right_     { nullptr };
 
 }; // RTreeNodeND
 
@@ -1350,7 +1360,6 @@ private:
   | Attributes
   ------------------------------------------------------------------*/
   std::unique_ptr<Node> root_ {nullptr};
-
 
 }; // RTreeND
 
