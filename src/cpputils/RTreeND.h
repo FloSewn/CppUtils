@@ -32,6 +32,31 @@ static std::array<std::size_t,8> BBOXND_VTK_CONN_MAP
 
 static inline long unsigned RTreeNodeID = 0;
 
+/*********************************************************************
+* Forward declarations 
+*********************************************************************/
+template 
+<
+  typename    ObjectType,                  // Contained object
+  std::size_t M,                           // Max. element number 
+  typename    CoordType,                   // Coordinate type
+  std::size_t Dim,                         // Dimensions
+  typename    SortStrategy                 // Sorting strategy
+>
+class RTreeNodeND;
+
+template 
+<
+  typename    ObjectType,                  // Contained object
+  std::size_t M,                           // Max. element number 
+  typename    CoordType,                   // Coordinate type
+  std::size_t Dim,                         // Dimensions
+  typename    SortStrategy,                // Sorting strategy
+  typename    SplitStrategy                // Splitting strategy
+>
+class RTreeND;
+
+
 
 /*********************************************************************
 * This class defines a strategy for the sorting of RTree nodes
@@ -92,34 +117,266 @@ public:
 }; // NearestXSort
 
 
-
-
 /*********************************************************************
-* Forward declarations 
+* Quadratic split strategy
 *********************************************************************/
-template 
-<
-  typename    ObjectType,                  // Contained object
-  std::size_t M,                           // Max. element number 
-  typename    CoordType,                   // Coordinate type
-  std::size_t Dim,                         // Dimensions
-  typename    SortStrategy                 // Sorting strategy
->
-class RTreeNodeND;
+class QuadraticSplit
+{
+public:
+  /*------------------------------------------------------------------ 
+  | This function is called upon the splitting of the entries of 
+  | a given "node" in two sets "n1" and "n2".
+  | The output array "add_to_n2" marks all entries of the input node, 
+  | wether they will be distributed to the set "n1" (false) or 
+  | to the set "n2" (true).
+  ------------------------------------------------------------------*/
+  template<
+    typename    ObjectType,                  // Contained object
+    std::size_t M,                           // Max. element number 
+    typename    CoordType,                   // Coordinate type
+    std::size_t Dim,                         // Dimensions
+    typename    SortStrategy                 // Sorting strategy
+  >
+  static inline
+  std::array<bool,M> 
+  split(const RTreeNodeND<ObjectType,M,CoordType,Dim,SortStrategy>& node)
+  {
+    std::array<bool,M> add_to_n2 { false };
 
-template 
-<
-  typename    ObjectType,                  // Contained object
-  std::size_t M,                           // Max. element number 
-  typename    CoordType,                   // Coordinate type
-  std::size_t Dim,                         // Dimensions
-  typename    SortStrategy                 // Sorting strategy
->
-class RTreeND;
+    // This array marks all distributed entries
+    std::array<bool,M> distributed { false };
+
+    // This variable referes to the remaining number of entries, which 
+    // have not yet been distributed
+    std::size_t n_remaining = node.n_entries();
+
+    // These are the bounding boxes that enclose all objects in the 
+    // two sets
+    BBoxND<CoordType,Dim> bbox_1 {};
+    BBoxND<CoordType,Dim> bbox_2 {};
+
+    // This function picks the first entry for each group
+    // The entry for n1 is added indirectly through its marker 
+    // in the array "distributed"
+    std::size_t seed = pick_seeds(node, distributed, n_remaining, 
+                                  bbox_1, bbox_2);
+    add_to_n2[seed]  = true;
+    ASSERT( n_remaining == node.n_entries()-2, 
+        "Error in function RTree::pick_seeds() failed.");
+
+    // These are the number of entries that are already distributed 
+    // to both sets "n1" and "n2" 
+    std::size_t n_n1 = 1;
+    std::size_t n_n2 = 1;
+
+    while ( true )
+    {
+      // Stop if all entries have been assigned
+      if ( n_remaining == 0 )
+        return add_to_n2;
+
+      // First node has so few entries, that all remaining entries must
+      // be assigned to it in order to have the minimum number
+      if ( n_n1 + n_remaining == M/2 )
+      {
+        ASSERT( n_n2+1 >= M/2, "Error in function RTree::quadratic_split");
+        return add_to_n2;
+      }
+
+      // Second node has so few entries, that all remaining entries must
+      // be assigned to it in order to have the minimum number
+      if ( n_n2 + n_remaining == M/2 )
+      {
+        for ( std::size_t i = 0; i < M; ++i )
+          add_to_n2[i] = (distributed[i] == false) ? true : add_to_n2[i];
+
+        ASSERT( n_n1+1 >= M/2, "Error in function RTree::quadratic_split");
+        return add_to_n2;
+      }
+
+      // Pick the next entry to assign. This function also 
+      // decrements "n_remaining" and handles the markation
+      // of entry "i" in the array "distributed"
+      std::size_t i = pick_next(node, distributed, n_remaining, 
+                                bbox_1, bbox_2);
+
+      // Add entry "i" to the group whose covering rectangle will
+      // have to be enlarged least to accomodate it.
+      const BBoxND<CoordType,Dim>& E_i = node.bbox(i);
+
+      const BBoxND<CoordType,Dim> cover_1 = bbox_1.bbox_cover(E_i);
+      const BBoxND<CoordType,Dim> cover_2 = bbox_2.bbox_cover(E_i);
+      
+      const double d1 = cover_1.scale() - bbox_1.scale(); 
+      const double d2 = cover_2.scale() - bbox_2.scale(); 
+
+      bool add_entry_to_n2 = false;
+
+      // Add entry to set "n2", if its covering rectangle will be 
+      // enlarged less than for set "n1"
+      if ( d2 < d1 )
+        add_entry_to_n2 = true;
+
+      // In case of ties 
+      if ( EQ(d1, d2) ) 
+      {
+        // Add entry to set with smaller size
+        if ( bbox_2.scale() < bbox_1.scale() )
+          add_entry_to_n2 = true;
+
+        // Then to the one with fewer entries
+        if ( EQ(bbox_1.scale(), bbox_2.scale()) && (n_n2 < n_n1) )
+          add_entry_to_n2 = true;
+      }
+
+      // Otherwise, add entry to set "n1"
+      if ( add_entry_to_n2 )
+      {
+        add_to_n2[i] = true;
+        bbox_2       = cover_2;
+      }
+      else
+      {
+        bbox_1 = cover_1;
+      }
+    }
+
+  } // QuadraticSplit::split()
+
+
+private:
+
+  /*------------------------------------------------------------------ 
+  | Select two entries of the given full "node" which are used as 
+  | seeds for the quadratic_split() algorithm during a node splitting
+  | operation.
+  ------------------------------------------------------------------*/
+  template<
+    typename    ObjectType,                  // Contained object
+    std::size_t M,                           // Max. element number 
+    typename    CoordType,                   // Coordinate type
+    std::size_t Dim,                         // Dimensions
+    typename    SortStrategy                 // Sorting strategy
+  >
+  static inline
+  std::size_t 
+  pick_seeds(const RTreeNodeND<ObjectType,M,CoordType,Dim,SortStrategy>& node, 
+             std::array<bool,M>     distributed,
+             std::size_t&           n_remaining,
+             BBoxND<CoordType,Dim>& bbox_1,
+             BBoxND<CoordType,Dim>& bbox_2) 
+  {
+    ASSERT(node.n_entries() == M, "Invalid data structure passed to "
+        "function RTree::pick_seeds()");
+
+    std::size_t seed_1 = -1;
+    std::size_t seed_2 = -1;
+
+    double ineff = 0.0;
+
+    // Calculate inefficiency of grouping entries together
+    for (std::size_t i = 0; i < M; ++i)
+    {
+      const BBoxND<CoordType,Dim>& E_i = node.bbox(i);
+
+      for (std::size_t j = 0; j < M; ++j)
+      {
+        if ( i == j )
+          continue;
+
+        // Compose a rectangle J including E_i and E_j 
+        const BBoxND<CoordType,Dim>& E_j = node.bbox(j);
+
+        const BBoxND<CoordType,Dim> J = E_i.bbox_cover(E_j);
+
+        // Compute the inefficiency size
+        const double diff = J.scale() - E_i.scale() - E_j.scale();
+
+        // Choose the most wasteful pair
+        if ( diff > ineff )
+        {
+          ineff  = diff;
+          seed_1 = i;
+          seed_2 = j;
+        }
+      }
+    }
+
+    ASSERT( seed_1 != seed_2, "Function RTree::pick_seeds() failed.");
+    
+    // Mark chosen elements
+    bbox_1 = node.bbox(seed_1);
+    distributed[seed_1] = true;
+    --n_remaining;
+
+    bbox_2 = node.bbox(seed_2);
+    distributed[seed_2] = true;
+    --n_remaining;
+
+    return seed_2;
+
+  } // QuadraticSplit::pick_seeds()
+
+  /*------------------------------------------------------------------ 
+  | 
+  ------------------------------------------------------------------*/
+  template<
+    typename    ObjectType,                  // Contained object
+    std::size_t M,                           // Max. element number 
+    typename    CoordType,                   // Coordinate type
+    std::size_t Dim,                         // Dimensions
+    typename    SortStrategy                 // Sorting strategy
+  >
+  static inline
+  std::size_t 
+  pick_next(const RTreeNodeND<ObjectType,M,CoordType,Dim,SortStrategy>& node, 
+            std::array<bool,M>     distributed,
+            std::size_t&           n_remaining,
+            BBoxND<CoordType,Dim>& bbox_1,
+            BBoxND<CoordType,Dim>& bbox_2) 
+  {
+    std::size_t entry = 0;
+
+    double max_diff = 0.0;
+
+    // Determine the cost of putting each entry in each group
+    for (std::size_t i = 0; i < M; ++i)
+    {
+      if ( distributed[i] )
+        continue;
+
+      const BBoxND<CoordType,Dim>& E_i = node.bbox(i);
+
+      // Compute the size increases required in the covering rectangles
+      // "bbox_1" and "bbox_2" to include entry "i"
+      BBoxND<CoordType,Dim> C_1 = bbox_1.bbox_cover(E_i);
+      BBoxND<CoordType,Dim> C_2 = bbox_2.bbox_cover(E_i);
+
+      const double d1 = C_1.scale() - bbox_1.scale();
+      const double d2 = C_2.scale() - bbox_2.scale();
+
+      const double diff = ABS(d1 - d2);
+
+      // Choose the entry with the maximum difference between d1 and d2
+      if ( diff > max_diff )
+      {
+        entry    = i;
+        max_diff = diff;
+      }
+    }
+
+    distributed[entry] = true;
+    --n_remaining;
+
+    return entry;
+
+  } // QuadraticSplit::pick_next()
+
+}; // QuadraticSplit
 
 
 /*********************************************************************
-* Forward declarations 
+* Entry to store the rtree data 
 *********************************************************************/
 template 
 <
@@ -131,9 +388,6 @@ template
 >
 class RTreeEntryND
 {
-  friend RTreeND<ObjectType,M,CoordType,Dim,SortStrategy>;
-  friend RTreeNodeND<ObjectType,M,CoordType,Dim,SortStrategy>;
-
 public:
   using BBox     = BBoxND<CoordType,Dim>;
   using Node     = RTreeNodeND<ObjectType,M,CoordType,Dim,SortStrategy>;
@@ -181,6 +435,7 @@ private:
 
 }; // RTreeEntryND
 
+
 /*********************************************************************
 * References
 * ----------
@@ -203,17 +458,14 @@ private:
 *********************************************************************/
 template 
 <
-  typename    ObjectType,                  // Contained object
-  std::size_t M,                           // Max. element number 
-  typename    CoordType,                   // Coordinate type
-  std::size_t Dim,                         // Dimensions
-  typename    SortStrategy = NearestXSort  // Sorting strategy
+  typename    ObjectType,                      // Contained object
+  std::size_t M,                               // Max. element number 
+  typename    CoordType,                       // Coordinate type
+  std::size_t Dim,                             // Dimensions
+  typename    SortStrategy = NearestXSort      // Sorting strategy
 >
 class RTreeNodeND
 {
-  friend RTreeND<ObjectType,M,CoordType,Dim,SortStrategy>;
-  friend RTreeEntryND<ObjectType,M,CoordType,Dim,SortStrategy>;
-
 public:
   using BBox     = BBoxND<CoordType,Dim>;
   using Node     = RTreeNodeND<ObjectType,M,CoordType,Dim,SortStrategy>;
@@ -626,11 +878,12 @@ private:
 *********************************************************************/
 template 
 <
-  typename    ObjectType,                  // Contained object
-  std::size_t M,                           // Max. element number 
-  typename    CoordType,                   // Coordinate type
-  std::size_t Dim,                         // Dimensions
-  typename    SortStrategy = NearestXSort  // Sorting strategy
+  typename    ObjectType,                      // Contained object
+  std::size_t M,                               // Max. element number 
+  typename    CoordType,                       // Coordinate type
+  std::size_t Dim,                             // Dimensions
+  typename    SortStrategy = NearestXSort,     // Sorting strategy
+  typename    SplitStrategy = QuadraticSplit   // Splitting strategy
 >
 class RTreeND
 {
@@ -894,7 +1147,7 @@ private:
 
     // This array contains the information, which entries of the 
     // child node "child_node" will be added to "new_node"
-    std::array<bool,M> add_to_new = quadratic_split( child_node );
+    std::array<bool,M> add_to_new = SplitStrategy::split( child_node );
 
     // Distribute entries from "child_node" to "new_node"
     for ( std::size_t j = 0; j < M; ++j )
@@ -942,225 +1195,6 @@ private:
     }
 
   } // RTreeND::split_child()
-
-  /*------------------------------------------------------------------ 
-  | This function is called upon the splitting of the entries of 
-  | a given "node" in two sets "n1" and "n2".
-  | The output array "add_to_n2" marks all entries of the input node, 
-  | wether they will be distributed to the set "n1" (false) or 
-  | to the set "n2" (true).
-  ------------------------------------------------------------------*/
-  std::array<bool,M> quadratic_split(const Node& node) const
-  {
-    std::array<bool,M> add_to_n2 { false };
-
-    // This array marks all distributed entries
-    std::array<bool,M> distributed { false };
-
-    // This variable referes to the remaining number of entries, which 
-    // have not yet been distributed
-    std::size_t n_remaining = node.n_entries();
-
-    // These are the bounding boxes that enclose all objects in the 
-    // two sets
-    BBox bbox_1 {};
-    BBox bbox_2 {};
-
-    // This function picks the first entry for each group
-    // The entry for n1 is added indirectly through its marker 
-    // in the array "distributed"
-    std::size_t seed = pick_seeds(node, distributed, n_remaining, 
-                                  bbox_1, bbox_2);
-    add_to_n2[seed]  = true;
-    ASSERT( n_remaining == node.n_entries()-2, 
-        "Error in function RTree::pick_seeds() failed.");
-
-    // These are the number of entries that are already distributed 
-    // to both sets "n1" and "n2" 
-    std::size_t n_n1 = 1;
-    std::size_t n_n2 = 1;
-
-    while ( true )
-    {
-      // Stop if all entries have been assigned
-      if ( n_remaining == 0 )
-        return add_to_n2;
-
-      // First node has so few entries, that all remaining entries must
-      // be assigned to it in order to have the minimum number
-      if ( n_n1 + n_remaining == M/2 )
-      {
-        ASSERT( n_n2+1 >= M/2, "Error in function RTree::quadratic_split");
-        return add_to_n2;
-      }
-
-      // Second node has so few entries, that all remaining entries must
-      // be assigned to it in order to have the minimum number
-      if ( n_n2 + n_remaining == M/2 )
-      {
-        for ( std::size_t i = 0; i < M; ++i )
-          add_to_n2[i] = (distributed[i] == false) ? true : add_to_n2[i];
-
-        ASSERT( n_n1+1 >= M/2, "Error in function RTree::quadratic_split");
-        return add_to_n2;
-      }
-
-      // Pick the next entry to assign. This function also 
-      // decrements "n_remaining" and handles the markation
-      // of entry "i" in the array "distributed"
-      std::size_t i = pick_next(node, distributed, n_remaining, 
-                                bbox_1, bbox_2);
-
-      // Add entry "i" to the group whose covering rectangle will
-      // have to be enlarged least to accomodate it.
-      const BBox& E_i = node.bbox(i);
-
-      const BBox cover_1 = bbox_1.bbox_cover(E_i);
-      const BBox cover_2 = bbox_2.bbox_cover(E_i);
-      
-      const double d1 = cover_1.scale() - bbox_1.scale(); 
-      const double d2 = cover_2.scale() - bbox_2.scale(); 
-
-      bool add_entry_to_n2 = false;
-
-      // Add entry to set "n2", if its covering rectangle will be 
-      // enlarged less than for set "n1"
-      if ( d2 < d1 )
-        add_entry_to_n2 = true;
-
-      // In case of ties 
-      if ( EQ(d1, d2) ) 
-      {
-        // Add entry to set with smaller size
-        if ( bbox_2.scale() < bbox_1.scale() )
-          add_entry_to_n2 = true;
-
-        // Then to the one with fewer entries
-        if ( EQ(bbox_1.scale(), bbox_2.scale()) && (n_n2 < n_n1) )
-          add_entry_to_n2 = true;
-      }
-
-      // Otherwise, add entry to set "n1"
-      if ( add_entry_to_n2 )
-      {
-        add_to_n2[i] = true;
-        bbox_2       = cover_2;
-      }
-      else
-      {
-        bbox_1 = cover_1;
-      }
-    }
-
-  } // RTreeND::quadratic_split()
-
-  /*------------------------------------------------------------------ 
-  | Select two entries of the given full "node" which are used as 
-  | seeds for the quadratic_split() algorithm during a node splitting
-  | operation.
-  ------------------------------------------------------------------*/
-  std::size_t pick_seeds(const Node&        node, 
-                         std::array<bool,M> distributed,
-                         std::size_t&       n_remaining,
-                         BBox&              bbox_1,
-                         BBox&              bbox_2) const 
-  {
-    ASSERT(node.n_entries() == M, "Invalid data structure passed to "
-        "function RTree::pick_seeds()");
-
-    std::size_t seed_1 = -1;
-    std::size_t seed_2 = -1;
-
-    double ineff = 0.0;
-
-    // Calculate inefficiency of grouping entries together
-    for (std::size_t i = 0; i < M; ++i)
-    {
-      const BBox& E_i = node.bbox(i);
-
-      for (std::size_t j = 0; j < M; ++j)
-      {
-        if ( i == j )
-          continue;
-
-        // Compose a rectangle J including E_i and E_j 
-        const BBox& E_j = node.bbox(j);
-
-        const BBox J = E_i.bbox_cover(E_j);
-
-        // Compute the inefficiency size
-        const double diff = J.scale() - E_i.scale() - E_j.scale();
-
-        // Choose the most wasteful pair
-        if ( diff > ineff )
-        {
-          ineff  = diff;
-          seed_1 = i;
-          seed_2 = j;
-        }
-      }
-    }
-
-    ASSERT( seed_1 != seed_2, "Function RTree::pick_seeds() failed.");
-    
-    // Mark chosen elements
-    bbox_1 = node.bbox(seed_1);
-    distributed[seed_1] = true;
-    --n_remaining;
-
-    bbox_2 = node.bbox(seed_2);
-    distributed[seed_2] = true;
-    --n_remaining;
-
-    return seed_2;
-
-  } // RTreeND::pick_seeds()
-
-  /*------------------------------------------------------------------ 
-  | 
-  ------------------------------------------------------------------*/
-  std::size_t pick_next(const Node&        node, 
-                        std::array<bool,M> distributed,
-                        std::size_t&       n_remaining,
-                        BBox&              bbox_1,
-                        BBox&              bbox_2) const 
-  {
-    std::size_t entry = 0;
-
-    double max_diff = 0.0;
-
-    // Determine the cost of putting each entry in each group
-    for (std::size_t i = 0; i < M; ++i)
-    {
-      if ( distributed[i] )
-        continue;
-
-      const BBox& E_i = node.bbox(i);
-
-      // Compute the size increases required in the covering rectangles
-      // "bbox_1" and "bbox_2" to include entry "i"
-      BBox C_1 = bbox_1.bbox_cover(E_i);
-      BBox C_2 = bbox_2.bbox_cover(E_i);
-
-      const double d1 = C_1.scale() - bbox_1.scale();
-      const double d2 = C_2.scale() - bbox_2.scale();
-
-      const double diff = ABS(d1 - d2);
-
-      // Choose the entry with the maximum difference between d1 and d2
-      if ( diff > max_diff )
-      {
-        entry    = i;
-        max_diff = diff;
-      }
-    }
-
-    distributed[entry] = true;
-    --n_remaining;
-
-    return entry;
-
-  } // RTreeND::pick_next()
 
   /*------------------------------------------------------------------ 
   | Insert a new object into the RTree structure
