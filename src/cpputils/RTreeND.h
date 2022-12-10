@@ -25,13 +25,6 @@
 
 namespace CppUtils {
 
-// Array to map from BBoxND vertex coordinates
-// to VTK hexahedral coordinates
-static std::array<std::size_t,8> BBOXND_VTK_CONN_MAP 
-{ 0, 1, 2, 3, 7, 6, 5, 4 };
-
-static inline long unsigned RTreeNodeID = 0;
-
 /*********************************************************************
 * Forward declarations 
 *********************************************************************/
@@ -525,132 +518,6 @@ public:
   }
 
   /*------------------------------------------------------------------ 
-  | Export the node data to the VTK format
-  ------------------------------------------------------------------*/
-  std::size_t export_to_vtu(std::vector<CoordType>&   points,
-                            std::vector<std::size_t>& connectivity,
-                            std::vector<std::size_t>& offsets,
-                            std::vector<std::size_t>& types,
-                            std::vector<int>&         heights,
-                            std::size_t               cur_height,
-                            std::size_t               cur_offset=(1<<Dim))
-  {
-    // Call method for child nodes
-    if ( !is_leaf() )
-      for (std::size_t i = 0; i < n_entries(); ++i)
-        cur_offset = child(i).export_to_vtu(points, connectivity, 
-                                            offsets,types, heights, 
-                                            cur_height-1, cur_offset);
-
-    std::size_t n_verts = points.size() / 3;
-
-    for (std::size_t i = 0; i < n_entries(); ++i)
-    {
-      auto vertices = bbox(i).vertices();
-
-      std::size_t v_start = n_verts;
-
-      for (std::size_t j = 0; j < vertices.size(); ++j)
-      {
-        for (std::size_t k = 0; k < Dim; ++k)
-          points.push_back(vertices[j][k]);
-
-        for (std::size_t k = Dim; k < 3; ++k)
-          points.push_back( -1.0f * cur_height );
-
-        connectivity.push_back( v_start + BBOXND_VTK_CONN_MAP[ j ]);
-        ++n_verts;
-      }
-
-      offsets.push_back( cur_offset );
-      cur_offset += vertices.size();
-
-      if (Dim == 3)
-        types.push_back( 12 ); // VTK_HEXAHEDRON
-
-      if (Dim == 2)
-        types.push_back( 9 ); // VTK_QUAD
-
-      if (Dim == 1)
-        types.push_back( 3 ); // VTK_LINE
-
-      heights.push_back( cur_height );
-    }
-
-    return cur_offset;
-
-  } // RTreeNodeND::export_to_vtu()
-
-  /*------------------------------------------------------------------ 
-  | Export the node data 
-  ------------------------------------------------------------------*/
-  std::ostream& export_to_txt(std::ostream& os,  
-                              std::size_t   level=0, 
-                              std::size_t   index=0,
-                              std::size_t   parent_index=0) const
-  {
-    if ( !is_leaf() )
-    {
-      for (std::size_t i = 0; i < n_entries(); ++i)
-      {
-        child(i).export_to_txt(os, level-1, i, index);
-        os << "\n";
-      }
-    }
-
-    os << n_entries() << ", " 
-       << level << ", " 
-       << index << ", "
-       << parent_index << "\n";
-
-    for (std::size_t i = 0; i < n_entries(); ++i)
-    {
-      const VecND<CoordType,Dim>& ll = bbox(i).lowleft();
-      const VecND<CoordType,Dim>& ur = bbox(i).upright();
-
-      os << std::setprecision(5) << std::fixed 
-         << ll.x << ", " << ll.y << ", " 
-         << ur.x << ", " << ur.y;
-
-      if ( i < n_entries() - 1 )
-        os << "\n";
-    }
-
-    return os;
-
-  } // RTreeNodeND::export_to_txt()
-
-  /*------------------------------------------------------------------ 
-  | Print out the tree structure to the command line
-  ------------------------------------------------------------------*/
-  std::ostream& print(std::ostream& os,  
-                      std::size_t level=0) const
-  {
-    for ( std::size_t i = 0; i < n_entries(); ++i )
-    {
-      if ( level > 0 )
-      {
-        for ( std::size_t j = 0; j < level; ++j )
-          os << "   ";
-        os << "|\n";
-        for ( std::size_t j = 0; j < level; ++j )
-          os << "   ";
-      }
-
-      os << "*-[" << id_ << " | " << level 
-         << " - " << i+1 << "/" << n_entries() << "]: ";
-      os << bbox(i) << "\n";
-
-      if ( !is_leaf() )
-        child(i).print(os, level+1);
-    }
-
-    if ( level == 1 )
-      os << "\n";
-
-  } // print()
-
-  /*------------------------------------------------------------------ 
   | Get bounding box that encloses all objects stored in this node
   ------------------------------------------------------------------*/
   BBox bbox() const
@@ -887,6 +754,8 @@ template
 >
 class RTreeND
 {
+  static inline long unsigned node_id_ = 0;
+
 public:
 
   using BBox       = BBoxND<CoordType,Dim>;
@@ -898,7 +767,7 @@ public:
   ------------------------------------------------------------------*/
   RTreeND()
   {
-    root_ = std::make_unique<Node>(RTreeNodeID++);
+    root_ = std::make_unique<Node>(node_id_++);
   }
 
   /*------------------------------------------------------------------ 
@@ -919,65 +788,6 @@ public:
     return height;
 
   } // RTreeND::height()
-
-  /*------------------------------------------------------------------ 
-  | Print out the r-tree structure to the command line
-  ------------------------------------------------------------------*/
-  std::ostream& print(std::ostream& os)
-  { (*root_).print(os); }
-
-  /*------------------------------------------------------------------ 
-  | 
-  ------------------------------------------------------------------*/
-  void write_to_vtu(const std::string& path) const
-  {
-    std::string file_name = path;
-
-    if (file_name.substr(file_name.find_last_of(".") + 1) != "vtu")
-      file_name += ".vtu";
-    
-    std::vector<CoordType> points {};
-    std::vector<std::size_t> connectivity {};
-    std::vector<std::size_t> offsets {};
-    std::vector<std::size_t> types {};
-    std::vector<int> heights {};
-
-    std::size_t tree_height = height();
-
-    (*root_).export_to_vtu(points, connectivity, offsets, 
-                           types, heights, tree_height);
-
-    VtuWriter writer { points, connectivity, offsets, types };
-    writer.add_cell_data( heights, "height", 1);
-    writer.write( file_name );
-
-
-  } // RTreeND::write_to_vtu()
-
-  /*------------------------------------------------------------------ 
-  | Write the R-Tree structure to a text file
-  ------------------------------------------------------------------*/
-  void write_to_file(const std::string& path) const
-  {
-    std::ofstream outfile;
-
-    std::string file_name = path;
-
-    if (file_name.substr(file_name.find_last_of(".") + 1) != "txt")
-      file_name += ".txt";
-
-    outfile.open( file_name );
-
-    outfile << "# Node entries, tree-level, node-index, parent-index\n";
-    outfile << "# x_low, y-low, x-up, y-up\n";
-
-    outfile << (*this);
-
-    outfile.close();
-
-  } // RTreeND::write_to_file()
-
-
 
   /*------------------------------------------------------------------ 
   | 
@@ -1082,7 +892,7 @@ public:
 
     // Group objects into (N / M) leaf nodes
     NodeVector node_layer {};
-    node_layer.push_back( std::make_unique<Node>(RTreeNodeID++) );
+    node_layer.push_back( std::make_unique<Node>(node_id_++) );
 
     for ( const ObjectType* obj : sorted_objects )
     {
@@ -1091,7 +901,7 @@ public:
       cur_leaf.add_object( *obj );
 
       if ( cur_leaf.n_entries() >= M-1 )
-        node_layer.push_back( std::make_unique<Node>(RTreeNodeID++) );
+        node_layer.push_back( std::make_unique<Node>(node_id_++) );
     }
 
     // Recursively pack nodes into a node layer at the 
@@ -1140,7 +950,7 @@ private:
 
     // This is the new node, which will get half of the entries 
     // of "child_node"
-    auto new_node_ptr = std::make_unique<Node>(RTreeNodeID++);
+    auto new_node_ptr = std::make_unique<Node>(node_id_++);
     Node& new_node = *new_node_ptr;
 
     new_node.is_leaf( child_node.is_leaf() );
@@ -1319,7 +1129,7 @@ private:
   ------------------------------------------------------------------*/
   void add_root_node()
   {
-    auto new_root = std::make_unique<Node>(RTreeNodeID++);
+    auto new_root = std::make_unique<Node>(node_id_++);
 
     (*new_root).add_child( root_ );
     root_ = std::move(new_root);
@@ -1368,7 +1178,7 @@ private:
     // child nodes to them
     NodeVector parent_nodes {};
 
-    parent_nodes.push_back(std::make_unique<Node>(RTreeNodeID++));
+    parent_nodes.push_back(std::make_unique<Node>(node_id_++));
 
     // Performance might be better if we add from the back...
     for ( size_t i = 0; i < children.size(); ++i )
@@ -1376,7 +1186,7 @@ private:
       if ( parent_nodes.back().get()->n_entries() >= M-1 )
       {
         parent_nodes.push_back(
-          std::make_unique<Node>(RTreeNodeID++)
+          std::make_unique<Node>(node_id_++)
         );
       }
 
@@ -1398,24 +1208,235 @@ private:
 }; // RTreeND
 
 
-
 /*********************************************************************
-* ostream
+* This class is used to export the RTreeND structure
 *********************************************************************/
 template 
 <
-  typename    ObjectType, 
-  std::size_t M, 
-  typename    CoordType, 
-  std::size_t Dim
+  typename    ObjectType,                      // Contained object
+  std::size_t M,                               // Max. element number 
+  typename    CoordType,                       // Coordinate type
+  std::size_t Dim,                             // Dimensions
+  typename    SortStrategy = NearestXSort,     // Sorting strategy
+  typename    SplitStrategy = QuadraticSplit   // Splitting strategy
 >
-std::ostream& operator<<(std::ostream& os, 
-                         const RTreeND<ObjectType,M,CoordType,Dim>& tree)
+class RTreeNDWriter
 {
-  std::size_t height = tree.height();
 
-  return tree.root().export_to_txt(os, height);
-}
+public:
 
+  using Node  = RTreeNodeND<ObjectType,M,CoordType,Dim,SortStrategy>;
+  using RTree = RTreeND<ObjectType,M,CoordType,Dim,SortStrategy,SplitStrategy>;
+
+  /*------------------------------------------------------------------ 
+  | Constructor
+  ------------------------------------------------------------------*/
+  RTreeNDWriter(const RTree& rtree)
+  : rtree_ { &rtree }
+  { }
+
+  /*------------------------------------------------------------------ 
+  | Write the RTree data to a VTU file
+  ------------------------------------------------------------------*/
+  void write_to_vtu(const std::string& export_prefix) const
+  {
+    std::string file_name = export_prefix;
+
+    if (file_name.substr(file_name.find_last_of(".") + 1) != "vtu")
+      file_name += ".vtu";
+
+    std::vector<CoordType>   points {};
+    std::vector<std::size_t> connectivity {};
+    std::vector<std::size_t> offsets {};
+    std::vector<std::size_t> types {};
+    std::vector<int>         heights {};
+
+    std::size_t tree_height = (*rtree_).height();
+
+    write_vtu_data((*rtree_).root(), points, connectivity, 
+                   offsets, types, heights, tree_height);
+
+    VtuWriter writer { points, connectivity, offsets, types };
+    writer.add_cell_data( heights, "height", 1);
+    writer.write( file_name );
+
+  } // write_to_vtu()
+
+  /*------------------------------------------------------------------ 
+  | Write the RTree data to a TXT file
+  ------------------------------------------------------------------*/
+  void write_to_txt(const std::string& export_prefix) const
+  {
+    std::ofstream outfile;
+
+    std::string file_name = export_prefix;
+
+    if (file_name.substr(file_name.find_last_of(".") + 1) != "txt")
+      file_name += ".txt";
+
+    outfile.open( file_name );
+
+    outfile << "# Node entries, tree-level, node-index, parent-index\n";
+    outfile << "# x_low, y-low, x-up, y-up\n";
+
+    std::size_t height = (*rtree_).height();
+
+    write_txt_data((*rtree_).root(), outfile, height);
+
+    outfile.close();
+
+  } // write_to_txt()
+
+  /*------------------------------------------------------------------ 
+  | Print the RTree data to the command line
+  ------------------------------------------------------------------*/
+  std::ostream& print(std::ostream& os) const
+  {
+    return print_node((*rtree_).root(), os);
+  } 
+
+private:
+
+  /*------------------------------------------------------------------ 
+  | Write the data of a rtree node to a vtu file
+  ------------------------------------------------------------------*/
+  std::size_t write_vtu_data(const Node&               node,
+                             std::vector<CoordType>&   points,
+                             std::vector<std::size_t>& connectivity,
+                             std::vector<std::size_t>& offsets,
+                             std::vector<std::size_t>& types,
+                             std::vector<int>&         heights,
+                             std::size_t               cur_height,
+                             std::size_t               cur_offset=(1<<Dim))
+  const
+  {
+    // Call method for child nodes
+    if ( !node.is_leaf() )
+      for (std::size_t i = 0; i < node.n_entries(); ++i)
+        cur_offset = write_vtu_data(node.child(i), points, connectivity, 
+                                    offsets, types, heights, 
+                                    cur_height-1, cur_offset);
+
+    std::size_t n_verts = points.size() / 3;
+
+    for (std::size_t i = 0; i < node.n_entries(); ++i)
+    {
+      auto vertices = node.bbox(i).vertices();
+
+      std::size_t v_start = n_verts;
+
+      for (std::size_t j = 0; j < vertices.size(); ++j)
+      {
+        for (std::size_t k = 0; k < Dim; ++k)
+          points.push_back(vertices[j][k]);
+
+        for (std::size_t k = Dim; k < 3; ++k)
+          points.push_back( -1.0f * cur_height );
+
+        connectivity.push_back( v_start + vtk_conn_map_[ j ]);
+        ++n_verts;
+      }
+
+      offsets.push_back( cur_offset );
+      cur_offset += vertices.size();
+
+      if (Dim == 3)
+        types.push_back( 12 ); // VTK_HEXAHEDRON
+
+      if (Dim == 2)
+        types.push_back( 9 ); // VTK_QUAD
+
+      if (Dim == 1)
+        types.push_back( 3 ); // VTK_LINE
+
+      heights.push_back( cur_height );
+    }
+
+    return cur_offset;
+
+  } // write_vtu_data()
+
+  /*------------------------------------------------------------------ 
+  | Write the data of an rtree node to a txt file
+  ------------------------------------------------------------------*/
+  void write_txt_data(const Node&   node, 
+                      std::ostream& os,
+                      std::size_t   level=0, 
+                      std::size_t   index=0,
+                      std::size_t   parent_index=0) const
+  {
+    if ( !node.is_leaf() )
+    {
+      for (std::size_t i = 0; i < node.n_entries(); ++i)
+      {
+        write_txt_data(node.child(i), os, level-1, i, index);
+        os << "\n";
+      }
+    }
+
+    os << node.n_entries() << ", " 
+       << level << ", " 
+       << index << ", "
+       << parent_index << "\n";
+
+    for (std::size_t i = 0; i < node.n_entries(); ++i)
+    {
+      const VecND<CoordType,Dim>& ll = node.bbox(i).lowleft();
+      const VecND<CoordType,Dim>& ur = node.bbox(i).upright();
+
+      os << std::setprecision(5) << std::fixed 
+         << ll.x << ", " << ll.y << ", " 
+         << ur.x << ", " << ur.y;
+
+      if ( i < node.n_entries() - 1 )
+        os << "\n";
+    }
+
+  } // write_txt_data() 
+
+  /*------------------------------------------------------------------ 
+  | Print the data of an rtree-node to the command line
+  ------------------------------------------------------------------*/
+  std::ostream& print_node(const Node&   node, 
+                           std::ostream& os, 
+                           std::size_t   level=0) const
+  {
+    for ( std::size_t i = 0; i < node.n_entries(); ++i )
+    {
+      if ( level > 0 )
+      {
+        for ( std::size_t j = 0; j < level; ++j )
+          os << "   ";
+        os << "|\n";
+        for ( std::size_t j = 0; j < level; ++j )
+          os << "   ";
+      }
+
+      os << "*-[" << node.id() << " | " << level 
+         << " - " << i+1 << "/" << node.n_entries() << "]: ";
+      os << node.bbox(i) << "\n";
+
+      if ( !node.is_leaf() )
+        print_node(node.child(i), os, level+1);
+    }
+
+    if ( level == 1 )
+      os << "\n";
+
+    return os;
+
+  } // print_node()
+
+  /*------------------------------------------------------------------ 
+  | Attributes
+  ------------------------------------------------------------------*/
+  const RTree* rtree_;
+
+  // Array to map from BBoxND vertex coordinates
+  // to VTK hexahedral coordinates
+  const std::array<std::size_t,8> vtk_conn_map_ 
+  { 0, 1, 2, 3, 7, 6, 5, 4 };
+
+}; // RTreeNDWriter
 
 } // namespace CppUtils

@@ -175,18 +175,17 @@ void constructor()
     tree.insert( r );
 
 
-  tree.print(std::cout);
 
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
-  std::string file_name_txt 
-  { source_dir + "/auxiliary/test_data/RTree_constructor.txt" };
 
-  tree.write_to_file( file_name_txt );
+  std::string file_name 
+  { source_dir + "/auxiliary/test_data/RTree_constructor" };
 
-  std::string file_name_vtu 
-  { source_dir + "/auxiliary/test_data/RTree_constructor.vtu" };
+  RTreeNDWriter writer { tree };
 
-  tree.write_to_vtu( file_name_vtu );
+  writer.write_to_vtu( file_name );
+  writer.write_to_txt( file_name );
+  writer.print(std::cout);
 
 
 } // constructor()
@@ -210,19 +209,18 @@ void bulk_insertion_2d()
 
   tree.insert( rectangles );
 
-  tree.print(std::cout);
-
 
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
-  std::string file_name_txt
-  { source_dir + "/auxiliary/test_data/RTree_bulk_insertion_2d.txt" };
 
-  tree.write_to_file( file_name_txt );
+  std::string file_name 
+  { source_dir + "/auxiliary/test_data/RTree_bulk_insertion_2d" };
 
-  std::string file_name_vtu 
-  { source_dir + "/auxiliary/test_data/RTree_bulk_insertion_2d.vtu" };
+  RTreeNDWriter writer { tree };
 
-  tree.write_to_vtu( file_name_vtu );
+  writer.write_to_vtu( file_name );
+  writer.write_to_txt( file_name );
+  writer.print(std::cout);
+
 
 } // bulk_insertion_2d()
 
@@ -246,15 +244,18 @@ void bulk_insertion_3d()
 
   tree.insert( cubes );
 
-  tree.print(std::cout);
-
 
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
 
-  std::string file_name_vtu 
-  { source_dir + "/auxiliary/test_data/RTree_bulk_insertion_3d.vtu" };
+  std::string file_name 
+  { source_dir + "/auxiliary/test_data/RTree_bulk_insertion_3d" };
 
-  tree.write_to_vtu( file_name_vtu );
+  RTreeNDWriter writer { tree };
+
+  writer.write_to_vtu( file_name );
+  writer.write_to_txt( file_name );
+  writer.print(std::cout);
+
 
 } // bulk_insertion_3d()
 
@@ -268,7 +269,11 @@ void run_tests_RTreeND()
 {
   RTreeNDTests::constructor();
 
+  std::cout << "-----------------------------------------" << std::endl;
+
   RTreeNDTests::bulk_insertion_2d();
+
+  std::cout << "-----------------------------------------" << std::endl;
 
   RTreeNDTests::bulk_insertion_3d();
 
