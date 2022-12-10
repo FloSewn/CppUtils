@@ -188,6 +188,25 @@ void constructor()
   writer.print(std::cout);
 
 
+  // Check internal connectivity
+  auto& root = tree.root();
+  auto& c_0 = root.child(0);
+  auto& c_1 = root.child(1);
+
+  CHECK( c_0.left()  == nullptr );
+  CHECK( c_0.right() == &c_1 );
+  CHECK( c_1.left()  == &c_0 );
+  CHECK( c_1.right() == nullptr );
+
+  auto& c_0_0 = c_0.child(0);
+  auto& c_0_1 = c_0.child(1);
+
+  CHECK( c_0_0.left()  == nullptr );
+  CHECK( c_0_0.right() == &c_0_1 );
+  CHECK( c_0_1.left()  == &c_0_0 );
+  CHECK( c_0_1.right() == nullptr );
+
+
 } // constructor()
 
 /*--------------------------------------------------------------------

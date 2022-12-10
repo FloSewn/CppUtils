@@ -63,8 +63,7 @@ public:
   | 
   ------------------------------------------------------------------*/
   template <typename ObjectType>
-  static inline
-  std::vector<const ObjectType*> 
+  static inline std::vector<const ObjectType*> 
   sort(const std::vector<ObjectType>& objects)
   {
     std::vector<const ObjectType*> sorted_objects;
@@ -79,9 +78,43 @@ public:
     });
 
     return std::move( sorted_objects );
-
   } // sort()
 
+  /*------------------------------------------------------------------ 
+  | This function takes a vector of objects and a corresponding 
+  | vector of the object's bounding boxes and creates an array 
+  | of sorted pointers to the given objects, where the sorting is 
+  | based on the "choose_bbox()" function
+  ------------------------------------------------------------------*/
+  template <typename ObjectType, typename CoordType, std::size_t Dim>
+  static inline std::vector<const ObjectType*> 
+  sort(const std::vector<ObjectType>& objects,
+       const std::vector<BBoxND<CoordType,Dim>>& bboxes)
+  {
+    ASSERT((objects.size() == bboxes.size()),
+        "Invalid input for NearestXSort::sort()");
+
+    // Create vector with indices for the object sorting
+    std::vector<size_t> index( objects.size() );
+    std::iota(index.begin(), index.end(), 0);
+
+    // Use std::stable_sort() instead of sort to avoid unnecessary
+    // index re-orderings when comparing equal values
+    std::stable_sort(index.begin(), index.end(),
+      [&bboxes](size_t i1, size_t i2)
+    {
+      return choose_bbox(bboxes[i1], bboxes[i2]);
+    });
+
+    // Put all object pointes into new vector that will be sorted
+    std::vector<const ObjectType*> sorted_objects;
+
+    for ( auto i : index )
+      sorted_objects.push_back( &objects[i] );
+
+    return std::move( sorted_objects );
+
+  } // sort()
 
   /*------------------------------------------------------------------ 
   | This function returns true, if the given left-hand sided 
@@ -503,6 +536,9 @@ public:
   void left(Node& n) { left_ = &n; }
   void right(Node& n) { right_ = &n; }
 
+  void set_left_null() { left_ = nullptr; }
+  void set_right_null() { right_ = nullptr; }
+
   /*------------------------------------------------------------------ 
   | Function used to estimate the tree height
   ------------------------------------------------------------------*/
@@ -549,7 +585,7 @@ public:
   ------------------------------------------------------------------*/
   ObjectType& object(std::size_t i) 
   { 
-    ASSERT( i < n_entries(), 
+    ASSERT( i < n_entries() && is_leaf(), 
         "RTreeNodeND: Unable to access key at position " 
         + std::to_string(i) );
     return *(const_cast<ObjectType*>(entries_[i].object())); 
@@ -557,7 +593,7 @@ public:
 
   const ObjectType& object(std::size_t i) const 
   { 
-    ASSERT( i < n_entries(), 
+    ASSERT( i < n_entries() && is_leaf(), 
         "RTreeNodeND: Unable to access key at position " 
         + std::to_string(i) );
     return *(entries_[i].object());
@@ -568,7 +604,7 @@ public:
   ------------------------------------------------------------------*/
   Node_ptr& child_ptr(std::size_t i) 
   { 
-    ASSERT( i < n_entries(), 
+    ASSERT( i < n_entries() && !is_leaf(), 
         "RTreeNodeND: Unable to access child at position " 
         + std::to_string(i) );
     return entries_[i].child_ptr();
@@ -576,7 +612,7 @@ public:
 
   const Node_ptr& child_ptr(std::size_t i) const
   { 
-    ASSERT( i < n_entries(), 
+    ASSERT( i < n_entries() && !is_leaf(), 
         "RTreeNodeND: Unable to access child at position " 
         + std::to_string(i) );
     return entries_[i].child_ptr(); 
@@ -587,7 +623,7 @@ public:
   ------------------------------------------------------------------*/
   Node& child(std::size_t i) 
   { 
-    ASSERT( i < n_entries(), 
+    ASSERT( i < n_entries() && !is_leaf(), 
         "RTreeNodeND: Unable to access child at position " 
         + std::to_string(i) );
     return entries_[i].child();
@@ -595,7 +631,7 @@ public:
 
   const Node& child(std::size_t i) const 
   { 
-    ASSERT( i < n_entries(), 
+    ASSERT( i < n_entries() && !is_leaf(), 
         "RTreeNodeND: Unable to access child at position " 
         + std::to_string(i) );
     return entries_[i].child();
@@ -617,7 +653,7 @@ public:
   ------------------------------------------------------------------*/
   void object(std::size_t i, const ObjectType& obj)
   { 
-    ASSERT( i < n_entries(), 
+    ASSERT( i < n_entries() && is_leaf(), 
         "RTreeNodeND: Unable to set object at position " 
         + std::to_string(i) );
     entries_[i].object(&obj);
@@ -628,7 +664,7 @@ public:
   ------------------------------------------------------------------*/
   void child(std::size_t i, std::unique_ptr<Node>& c)
   { 
-    ASSERT( i < n_entries(), 
+    ASSERT( i < n_entries() && !is_leaf(), 
         "RTreeNodeND: Unable to set child at position " 
         + std::to_string(i) );
     entries_[i].child(c);
@@ -642,6 +678,8 @@ public:
     const std::size_t n_entries = this->n_entries();
     ASSERT( n_entries < M, "RTreeNodeND: Can not add more than " 
         + std::to_string(M) + " objects.");
+    ASSERT( is_leaf(), "RTreeNodeND: Can not add object to "
+        "non-leaf node.");
 
     //std::size_t i = 0;
     std::size_t i = n_entries;
@@ -661,7 +699,7 @@ public:
     for (std::size_t j = n_entries; j > i; --j)
     {
       this->bbox(j, this->bbox(j-1));
-      this->child(i, this->child_ptr(j-1));
+      this->object(i, this->object(j-1));
     }
 
     // Finally add the new object
@@ -678,7 +716,8 @@ public:
     Node& child = *child_ptr;
     const std::size_t n_entries = this->n_entries();
 
-    ASSERT( n_entries < M, "RTreeNodeND: Can not add more than " 
+    ASSERT( n_entries < M && !is_leaf(), 
+        "RTreeNodeND: Can not add more than " 
         + std::to_string(M) + " children.");
 
     std::size_t i = n_entries;
@@ -704,7 +743,6 @@ public:
     // Finally add the new child
     this->bbox(i, child.bbox()); 
     this->child(i, child_ptr);
-    this->is_leaf( false );
     child.parent( *this );
 
     // Set connectivity between child nodes
@@ -804,11 +842,16 @@ public:
 
     // Find the node & index of the respective entry to remove
     std::size_t i_entry {};
-    Node* node = find_object_to_remove(obj, node, i_entry);
+    Node* node_ptr = find_object_to_remove(obj, *root_, i_entry);
 
     // Return if no node is found 
-    if ( node == nullptr )
+    if ( node_ptr == nullptr )
       return false;
+
+    Node& node = *node_ptr;
+
+    //if ( node.n_entries() >= M/2 + 1 )
+
 
     // Remove entry from node
     //
@@ -988,6 +1031,18 @@ private:
       child_node.n_entries( child_node.n_entries() - 1 );
     }
 
+    // Set new connectivity between entries of "child_node"
+    if ( !child_node.is_leaf() )
+    {
+      for ( std::size_t j = 1; j < child_node.n_entries()-1; ++j )
+      {
+        child_node.child(j+1).left( child_node.child(j) );
+        child_node.child(j).right( child_node.child(j+1) );
+      }
+      child_node.child(0).set_left_null();
+      child_node.child(child_node.n_entries()-1).set_right_null();
+    }
+
     // Add "new_node" and its bounding boxx to "parent_node"
     parent_node.add_child( new_node_ptr );
 
@@ -1131,6 +1186,7 @@ private:
   {
     auto new_root = std::make_unique<Node>(node_id_++);
 
+    (*new_root).is_leaf(false);
     (*new_root).add_child( root_ );
     root_ = std::move(new_root);
     //root_->child(0).parent(*root_);   // maybe needed?
@@ -1180,7 +1236,6 @@ private:
 
     parent_nodes.push_back(std::make_unique<Node>(node_id_++));
 
-    // Performance might be better if we add from the back...
     for ( size_t i = 0; i < children.size(); ++i )
     {
       if ( parent_nodes.back().get()->n_entries() >= M-1 )
@@ -1191,6 +1246,8 @@ private:
       }
 
       Node& cur_node = *parent_nodes.back().get();
+
+      cur_node.is_leaf( false );
 
       cur_node.add_child( children[index[i]] );
     }
