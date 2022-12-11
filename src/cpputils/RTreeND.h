@@ -1044,56 +1044,6 @@ private:
       child_node.child(child_node.n_entries()-1).set_right_null();
     }
 
-    /*
-    // Distribute entries from "child_node" to "new_node"
-    for ( std::size_t j = 0; j < M; ++j )
-    {
-      if ( !add_to_new[j] )
-        continue;
-
-      if ( new_node.is_leaf() )
-        new_node.add_object( child_node.object(j), child_node.bbox(j) );
-      else
-        new_node.add_child( child_node.child_ptr(j) );
-    }
-
-    // Re-distribute remining entries in "child_node"
-    // Put all elements right of j one to the left
-    for ( std::size_t j = M; j > 0; --j )
-    {
-      if ( !add_to_new[j-1] )
-        continue;
-
-      // Re-arrange bounding boxes of "child_node"
-      for ( std::size_t k = j; k < M; ++k )
-          child_node.bbox( k-1, child_node.bbox(k) );
-
-      // Re-arrange children / objects
-      if ( child_node.is_leaf() )
-        for ( std::size_t k = j; k < M; ++k )
-          child_node.object( k-1, child_node.object(k) );
-      else
-        for ( std::size_t k = j; k < M; ++k )
-          child_node.child( k-1, child_node.child_ptr(k) );
-
-      child_node.n_entries( child_node.n_entries() - 1 );
-    }
-
-    // Set new connectivity between entries of "child_node"
-    if ( !child_node.is_leaf() )
-    {
-      child_node.child(0).set_left_null();
-
-      for ( std::size_t j = 1; j < child_node.n_entries(); ++j )
-        child_node.child(j).left( child_node.child(j-1) );
-
-      for ( std::size_t j = 0; j < child_node.n_entries()-1; ++j )
-        child_node.child(j).right( child_node.child(j+1) );
-
-      child_node.child(child_node.n_entries()-1).set_right_null();
-    }
-    */
-
     // Add "new_node" and its bounding boxx to "parent_node"
     parent_node.add_child( new_node_ptr );
 
