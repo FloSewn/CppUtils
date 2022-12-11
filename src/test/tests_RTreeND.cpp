@@ -23,159 +23,41 @@ namespace RTreeNDTests
 using namespace CppUtils;
 
 /*--------------------------------------------------------------------
-| A simple vertex class that is stored in the QuadTree structure
---------------------------------------------------------------------*/
-template<typename T>
-class VertexType
-{
-public:
-  VertexType(T x, T y) 
-  : xy_ {x, y} 
-  {}
-
-  const Vec2<T>& xy() const { return xy_; }
-  const Vec2<T>& lowleft() const { return xy_; }
-  const Vec2<T>& upright() const { return xy_; }
-
-private:
-  Vec2<T> xy_;
-}; 
-
-/*--------------------------------------------------------------------
-| A simple edge class that is stored in the QuadTree structure
---------------------------------------------------------------------*/
-template<typename T>
-class EdgeType
-{
-public:
-  EdgeType(VertexType<T>& v1, VertexType<T>& v2)
-  : v1_ { &v1 }
-  , v2_ { &v2 }
-  {
-    xy_ = ( v1.xy() + v2.xy() ) / 2.0;
-
-    double x_min = MIN( v1.xy().x, v2.xy().x );
-    double x_max = MAX( v1.xy().x, v2.xy().x );
-
-    double y_min = MIN( v1.xy().y, v2.xy().y );
-    double y_max = MAX( v1.xy().y, v2.xy().y );
-
-    lowleft_ = { x_min, y_min };
-    upright_ = { x_max, y_max };
-  }
-
-  const Vec2<T>& xy() const { return xy_; }
-  const Vec2<T>& lowleft() const { return lowleft_; }
-  const Vec2<T>& upright() const { return upright_; }
-
-  VertexType<T>& v1() { return *v1_; };
-  const VertexType<T>& v1() const { return *v1_; };
-
-  VertexType<T>& v2() { return *v2_; };
-  const VertexType<T>& v2() const { return *v2_; };
-
-private:
-  VertexType<T>* v1_ { nullptr };
-  VertexType<T>* v2_ { nullptr };
-  Vec2<T>        xy_ { 0, 0 };
-  Vec2<T>        lowleft_ { 0, 0 };
-  Vec2<T>        upright_ { 0, 0 };
-}; 
-
-
-/*--------------------------------------------------------------------
-| Query function for nearest point to an edge
---------------------------------------------------------------------*/
-template <typename T, typename V>
-static inline bool nearest_edge_fun(T* edge,
-                                    const Vec2<V>& query,
-                                    V& min_dist_sqr)
-{
-  const VertexType<V>& v1 = edge->v1();
-  const VertexType<V>& v2 = edge->v2();
-
-  const Vec2<V>& xy_1 = v1.xy();
-  const Vec2<V>& xy_2 = v2.xy();
-
-  const V d_sqr = vertex_edge_dist_sqr(query, xy_1, xy_2);
-
-  if (d_sqr < min_dist_sqr)
-  {
-    min_dist_sqr = d_sqr;
-    return true;
-  }
-
-  return false;
-}
-
-
-/*--------------------------------------------------------------------
-| 
---------------------------------------------------------------------*/
-using Vertex = VertexType<double>;
-using Edge   = EdgeType<double>;
-using std::unique_ptr;
-using std::vector;
-using std::make_unique;
-using BBox2d = BBoxND<double, 2>;
-
-
-/*--------------------------------------------------------------------
-| Rectangular class for testing of the RTreeND
---------------------------------------------------------------------*/
-template <typename T, std::size_t N>
-class TestObject
-{
-  using Vec  = VecND<T,N>;
-  using BBox = BBoxND<T,N>;
-
-public:
-  //TestObject() {}
-
-  TestObject(const Vec& ll, const Vec& ur)
-  : bbox_ { ll, ur }
-  {
-    xy_ = 0.5 * (ll + ur);
-  }
-
-  Vec& xy() { return xy_; }
-  const Vec& xy() const { return xy_; }
-
-  BBox& bbox() { return bbox_; }
-  const BBox& bbox() const { return bbox_; }
-
-private:
-  BBox bbox_ {};
-  Vec  xy_   {};
-
-}; // TestObject
-
-using TestRect = TestObject<double, 2>;
-using TestCube = TestObject<double, 3>;
-
-/*--------------------------------------------------------------------
 | Test constructor
 --------------------------------------------------------------------*/
 void constructor()
 {
-  RTreeND<TestRect,3,double,2> tree {};
+  RTreeND<int,3,double,2> tree {};
+
+  std::vector<int> values;
+  std::vector<BBoxND<double,2>> bboxes;
+
+  values.push_back( 1 );
+  bboxes.push_back( { {0.0,0.0}, {1.0,1.0} } );
+
+  values.push_back( 2 );
+  bboxes.push_back( { {0.5,1.0}, {1.5,2.0} } );
+
+  values.push_back( 3 );
+  bboxes.push_back( { {2.0,0.5}, {3.0,1.5} } );
+
+  values.push_back( 4 );
+  bboxes.push_back( { {2.0,2.0}, {3.0,3.0} } );
+
+  values.push_back( 5 );
+  bboxes.push_back( { {4.0,4.0}, {5.0,5.0} } );
+
+  values.push_back( 6 );
+  bboxes.push_back( { {4.0,1.0}, {4.5,1.5} } );
+
+  values.push_back( 7 );
+  bboxes.push_back( { {3.0,4.5}, {5.0,5.5} } );
+
+  for (std::size_t i = 0; i < values.size(); ++i)
+    tree.insert( values[i], bboxes[i] );
 
 
-  std::vector<TestRect> rectangles;
-
-  rectangles.push_back( { {0.0,0.0}, {1.0,1.0} } );
-  rectangles.push_back( { {0.5,1.0}, {1.5,2.0} } );
-  rectangles.push_back( { {2.0,0.5}, {3.0,1.5} } );
-  rectangles.push_back( { {2.0,2.0}, {3.0,3.0} } );
-  rectangles.push_back( { {4.0,4.0}, {5.0,5.0} } );
-  rectangles.push_back( { {4.0,1.0}, {4.5,1.5} } );
-  rectangles.push_back( { {3.0,4.5}, {5.0,5.5} } );
-
-  for (TestRect& r : rectangles)
-    tree.insert( r );
-
-
-
+  // Export the tree structure
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
 
   std::string file_name 
@@ -214,21 +96,38 @@ void constructor()
 --------------------------------------------------------------------*/
 void bulk_insertion_2d()
 {
-  RTreeND<TestRect, 3, double, 2> tree {};
+  RTreeND<int,3,double,2> tree {};
 
-  std::vector<TestRect> rectangles;
-
-  rectangles.push_back( { {3.0,4.5}, {5.0,5.5} } );
-  rectangles.push_back( { {0.0,0.0}, {1.0,1.0} } );
-  rectangles.push_back( { {4.0,4.0}, {5.0,5.0} } );
-  rectangles.push_back( { {2.0,0.5}, {3.0,1.5} } );
-  rectangles.push_back( { {0.5,1.0}, {1.5,2.0} } );
-  rectangles.push_back( { {2.0,2.0}, {3.0,3.0} } );
-  rectangles.push_back( { {4.0,1.0}, {4.5,1.5} } );
-
-  tree.insert( rectangles );
+  std::vector<int> values;
+  std::vector<BBoxND<double,2>> bboxes;
 
 
+  // Fill the tree 
+  values.push_back( 1 );
+  bboxes.push_back( { {3.0,4.5}, {5.0,5.5} } );
+
+  values.push_back( 2 );
+  bboxes.push_back( { {0.0,0.0}, {1.0,1.0} } );
+
+  values.push_back( 3 );
+  bboxes.push_back( { {4.0,4.0}, {5.0,5.0} } );
+
+  values.push_back( 4 );
+  bboxes.push_back( { {2.0,0.5}, {3.0,1.5} } );
+
+  values.push_back( 5 );
+  bboxes.push_back( { {0.5,1.0}, {1.5,2.0} } );
+
+  values.push_back( 6 );
+  bboxes.push_back( { {2.0,2.0}, {3.0,3.0} } );
+
+  values.push_back( 7 );
+  bboxes.push_back( { {4.0,1.0}, {4.5,1.5} } );
+
+  tree.insert( values, bboxes );
+
+
+  // Export the tree structure
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
 
   std::string file_name 
@@ -241,6 +140,33 @@ void bulk_insertion_2d()
   writer.print(std::cout);
 
 
+  // Check internal connectivity
+  auto& root = tree.root();
+  auto& c_0 = root.child(0);
+  auto& c_1 = root.child(1);
+
+  CHECK( c_0.left()  == nullptr );
+  CHECK( c_0.right() == &c_1 );
+  CHECK( c_1.left()  == &c_0 );
+  CHECK( c_1.right() == nullptr );
+
+  auto& c_0_0 = c_0.child(0);
+  auto& c_0_1 = c_0.child(1);
+
+  CHECK( c_0_0.left()  == nullptr );
+  CHECK( c_0_0.right() == &c_0_1 );
+  CHECK( c_0_1.left()  == &c_0_0 );
+  CHECK( c_0_1.right() == nullptr );
+
+  auto& c_1_0 = c_1.child(0);
+  auto& c_1_1 = c_1.child(1);
+
+  CHECK( c_1_0.left()  == nullptr );
+  CHECK( c_1_0.right() == &c_1_1 );
+  CHECK( c_1_1.left()  == &c_1_0 );
+  CHECK( c_1_1.right() == nullptr );
+
+
 } // bulk_insertion_2d()
 
 /*--------------------------------------------------------------------
@@ -248,22 +174,32 @@ void bulk_insertion_2d()
 --------------------------------------------------------------------*/
 void bulk_insertion_3d()
 {
-  RTreeND<TestCube, 3, double, 3> tree {};
+  RTreeND<int, 3, double, 3> tree {};
 
-  std::vector<TestCube> cubes;
-  
-  cubes.push_back( { {0.0,0.0,0.0}, {2.0,2.0,2.0} } );
-  cubes.push_back( { {3.0,3.0,3.0}, {5.0,5.0,5.0} } );
-  cubes.push_back( { {6.0,7.0,3.0}, {8.0,8.0,5.0} } );
-  cubes.push_back( { {1.0,3.0,1.0}, {8.0,8.0,5.0} } );
-  cubes.push_back( { {2.0,2.0,2.0}, {2.5,2.5,2.5} } );
+  std::vector<int> values;
+  std::vector<BBoxND<double,3>> bboxes;
 
-  //for (TestCube& c : cubes)
-  //  tree.insert( c );
+  values.push_back( 1 );
+  bboxes.push_back( { {0.0,0.0,0.0}, {2.0,2.0,2.0} } );
 
-  tree.insert( cubes );
+  values.push_back( 2 );
+  bboxes.push_back( { {3.0,3.0,3.0}, {5.0,5.0,5.0} } );
 
+  values.push_back( 3 );
+  bboxes.push_back( { {6.0,7.0,3.0}, {8.0,8.0,5.0} } );
 
+  values.push_back( 4 );
+  bboxes.push_back( { {1.0,3.0,1.0}, {8.0,8.0,5.0} } );
+
+  values.push_back( 5 );
+  bboxes.push_back( { {2.0,2.0,2.0}, {2.5,2.5,2.5} } );
+
+  tree.insert( values, bboxes );
+
+  //for (std::size_t i = 0; i < values.size(); ++i)
+  //  tree.insert( values[i], bboxes[i] );
+
+  // Export tree structure
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
 
   std::string file_name 
@@ -274,7 +210,6 @@ void bulk_insertion_3d()
   writer.write_to_vtu( file_name );
   writer.write_to_txt( file_name );
   writer.print(std::cout);
-
 
 } // bulk_insertion_3d()
 

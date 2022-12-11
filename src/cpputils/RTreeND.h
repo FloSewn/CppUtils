@@ -60,42 +60,17 @@ class NearestXSort
 public:
 
   /*------------------------------------------------------------------ 
-  | 
-  ------------------------------------------------------------------*/
-  template <typename ObjectType>
-  static inline std::vector<const ObjectType*> 
-  sort(const std::vector<ObjectType>& objects)
-  {
-    std::vector<const ObjectType*> sorted_objects;
-
-    for ( const ObjectType& obj : objects )
-      sorted_objects.push_back( &obj );
-
-    std::sort(sorted_objects.begin(), sorted_objects.end(),
-              [](const ObjectType* lhs, const ObjectType* rhs)
-    {
-      return choose_bbox((*lhs).bbox(), (*rhs).bbox());
-    });
-
-    return std::move( sorted_objects );
-  } // sort()
-
-  /*------------------------------------------------------------------ 
   | This function takes a vector of objects and a corresponding 
   | vector of the object's bounding boxes and creates an array 
   | of sorted pointers to the given objects, where the sorting is 
   | based on the "choose_bbox()" function
   ------------------------------------------------------------------*/
-  template <typename ObjectType, typename CoordType, std::size_t Dim>
-  static inline std::vector<const ObjectType*> 
-  sort(const std::vector<ObjectType>& objects,
-       const std::vector<BBoxND<CoordType,Dim>>& bboxes)
+  template <typename CoordType, std::size_t Dim>
+  static inline std::vector<size_t> 
+  sort(const std::vector<BBoxND<CoordType,Dim>>& bboxes)
   {
-    ASSERT((objects.size() == bboxes.size()),
-        "Invalid input for NearestXSort::sort()");
-
     // Create vector with indices for the object sorting
-    std::vector<size_t> index( objects.size() );
+    std::vector<size_t> index( bboxes.size() );
     std::iota(index.begin(), index.end(), 0);
 
     // Use std::stable_sort() instead of sort to avoid unnecessary
@@ -106,13 +81,7 @@ public:
       return choose_bbox(bboxes[i1], bboxes[i2]);
     });
 
-    // Put all object pointes into new vector that will be sorted
-    std::vector<const ObjectType*> sorted_objects;
-
-    for ( auto i : index )
-      sorted_objects.push_back( &objects[i] );
-
-    return std::move( sorted_objects );
+    return std::move( index );
 
   } // sort()
 
@@ -570,6 +539,25 @@ public:
   };
 
   /*------------------------------------------------------------------ 
+  | Access entries
+  ------------------------------------------------------------------*/
+  const Entry& entry(std::size_t i) const
+  {
+    ASSERT( i < n_entries(), 
+        "RTreeNodeND: Unable to access entry at position " 
+        + std::to_string(i) );
+    return entries_[i]; 
+  }
+
+  Entry& entry(std::size_t i)
+  {
+    ASSERT( i < n_entries(), 
+        "RTreeNodeND: Unable to access entry at position " 
+        + std::to_string(i) );
+    return entries_[i]; 
+  }
+
+  /*------------------------------------------------------------------ 
   | Access minimum bounding rectangles
   ------------------------------------------------------------------*/
   const BBox& bbox(std::size_t i) const
@@ -673,7 +661,7 @@ public:
   /*------------------------------------------------------------------ 
   | Add new object to the node
   ------------------------------------------------------------------*/
-  void add_object(const ObjectType& object)
+  void add_object(const ObjectType& object, const BBox& obj_bbox)
   {
     const std::size_t n_entries = this->n_entries();
     ASSERT( n_entries < M, "RTreeNodeND: Can not add more than " 
@@ -688,7 +676,7 @@ public:
     // closer to the origin. Start searching from the back (faster)
     while ( i > 0 )
     {
-      if ( SortStrategy::choose_bbox(this->bbox(i-1), object.bbox()) )
+      if ( SortStrategy::choose_bbox(this->bbox(i-1), obj_bbox) )
         break;
       --i;
     }
@@ -703,7 +691,7 @@ public:
     }
 
     // Finally add the new object
-    this->bbox(i, object.bbox()); 
+    this->bbox(i, obj_bbox); 
     this->object(i, object);
 
   } // add_object()
@@ -737,7 +725,7 @@ public:
     for (std::size_t j = n_entries; j > i; --j)
     {
       this->bbox(j, this->bbox(j-1));
-      this->child(i, this->child_ptr(j-1));
+      this->child(j, this->child_ptr(j-1));
     }
 
     // Finally add the new child
@@ -757,7 +745,6 @@ public:
       child.right( this->child(i+1) );
       this->child(i+1).left( child );
     }
-
 
   } // add_child()
 
@@ -799,6 +786,8 @@ public:
   using BBox       = BBoxND<CoordType,Dim>;
   using Node       = RTreeNodeND<ObjectType,M,CoordType,Dim,SortStrategy>;
   using NodeVector = std::vector<std::unique_ptr<Node>>;
+  using Entry      = RTreeEntryND<ObjectType,M,CoordType,Dim,SortStrategy>;
+  using Entries    = std::array<Entry,M>;
 
   /*------------------------------------------------------------------ 
   | Constructor
@@ -910,7 +899,7 @@ public:
   /*------------------------------------------------------------------ 
   | Insert a new object into the RTree structure
   ------------------------------------------------------------------*/
-  void insert(const ObjectType& object)
+  void insert(const ObjectType& object, const BBox& obj_bbox)
   {
     // Handle the case where the root node is full
     if ( root_->n_entries() == M )
@@ -918,30 +907,35 @@ public:
       add_root_node();
       split_child(*root_, 0);
     }
-     
-    insert_nonfull(*root_, object);
+
+    insert_nonfull(*root_, object, obj_bbox);
 
   } // RTreeND::insert()
 
   /*------------------------------------------------------------------ 
   | Insert a bulk of objects into the RTree structure
   ------------------------------------------------------------------*/
-  void insert(const std::vector<ObjectType>& objects)
+  void insert(const std::vector<ObjectType>& objects,
+              const std::vector<BBox>& obj_bboxes)
   {
     // Put all objects in a temporary container, which will be 
     // sorted
-    std::vector<const ObjectType*> sorted_objects 
-      = SortStrategy::sort( objects );
+    std::vector<std::size_t> sorted_indices 
+      = SortStrategy::sort( obj_bboxes );
 
     // Group objects into (N / M) leaf nodes
     NodeVector node_layer {};
     node_layer.push_back( std::make_unique<Node>(node_id_++) );
 
-    for ( const ObjectType* obj : sorted_objects )
+    //for ( const ObjectType* obj : sorted_objects )
+    for ( std::size_t i : sorted_indices )
     {
       Node& cur_leaf = *node_layer.back().get();
 
-      cur_leaf.add_object( *obj );
+      const ObjectType& cur_obj = objects[i];
+      const BBox& cur_bbox = obj_bboxes[i];
+
+      cur_leaf.add_object( cur_obj, cur_bbox );
 
       if ( cur_leaf.n_entries() >= M-1 )
         node_layer.push_back( std::make_unique<Node>(node_id_++) );
@@ -953,9 +947,10 @@ public:
       node_layer = build_tree_bulk_insertion(node_layer);
 
     // Place remaining nodes into root node
+    Node& root = *root_;
+
     for ( std::size_t i = 0; i < node_layer.size(); ++i )
     {
-      Node& root = *root_;
       Node& cur_child = *node_layer[i];
 
       cur_child.parent( root );
@@ -964,6 +959,17 @@ public:
       root.bbox(i, cur_child.bbox() );
       root.child(i, node_layer[i] );
     }
+
+    // Set connectivity for children of root node
+    root.child(0).set_left_null();
+
+    for ( std::size_t i = 1; i < root.n_entries(); ++i )
+      root.child(i).left( root.child(i-1) );
+
+    for ( std::size_t i = 0; i < root.n_entries()-1; ++i )
+      root.child(i).right( root.child(i+1) );
+
+    root.child(root.n_entries()-1).set_right_null();
       
   } // RTreeND::insert()
 
@@ -1002,6 +1008,43 @@ private:
     // child node "child_node" will be added to "new_node"
     std::array<bool,M> add_to_new = SplitStrategy::split( child_node );
 
+
+    // Move all remaining child entries into vector
+    std::vector<Entry> entries_child {};
+    std::vector<Entry> entries_new {};
+
+    for ( std::size_t j = 0; j < M; ++j )
+    {
+      if ( add_to_new[j] )
+        entries_new.push_back( std::move( child_node.entry(j) ) );
+      else
+        entries_child.push_back( std::move( child_node.entry(j) ) );
+    }
+
+    new_node.n_entries( 0 );
+    child_node.n_entries( 0 );
+
+    if ( child_node.is_leaf() )
+    {
+      for ( Entry& e : entries_new )
+        new_node.add_object( *e.object(), e.bbox() );
+
+      for ( Entry& e : entries_child )
+        child_node.add_object( *e.object(), e.bbox() );
+    }
+    else
+    {
+      for ( Entry& e : entries_new )
+        new_node.add_child( e.child_ptr() );
+
+      for ( Entry& e : entries_child )
+        child_node.add_child( e.child_ptr() );
+
+      child_node.child(0).set_left_null();
+      child_node.child(child_node.n_entries()-1).set_right_null();
+    }
+
+    /*
     // Distribute entries from "child_node" to "new_node"
     for ( std::size_t j = 0; j < M; ++j )
     {
@@ -1009,24 +1052,29 @@ private:
         continue;
 
       if ( new_node.is_leaf() )
-        new_node.add_object( child_node.object(j) );
+        new_node.add_object( child_node.object(j), child_node.bbox(j) );
       else
         new_node.add_child( child_node.child_ptr(j) );
     }
 
     // Re-distribute remining entries in "child_node"
+    // Put all elements right of j one to the left
     for ( std::size_t j = M; j > 0; --j )
     {
       if ( !add_to_new[j-1] )
         continue;
 
-      // Put all elements right of j one to the left
+      // Re-arrange bounding boxes of "child_node"
       for ( std::size_t k = j; k < M; ++k )
-      {
-        child_node.object( k-1, child_node.object(k) );
-        child_node.bbox( k-1, child_node.bbox(k) );
-        child_node.child( k-1, child_node.child_ptr(k) );
-      }
+          child_node.bbox( k-1, child_node.bbox(k) );
+
+      // Re-arrange children / objects
+      if ( child_node.is_leaf() )
+        for ( std::size_t k = j; k < M; ++k )
+          child_node.object( k-1, child_node.object(k) );
+      else
+        for ( std::size_t k = j; k < M; ++k )
+          child_node.child( k-1, child_node.child_ptr(k) );
 
       child_node.n_entries( child_node.n_entries() - 1 );
     }
@@ -1034,14 +1082,17 @@ private:
     // Set new connectivity between entries of "child_node"
     if ( !child_node.is_leaf() )
     {
-      for ( std::size_t j = 1; j < child_node.n_entries()-1; ++j )
-      {
-        child_node.child(j+1).left( child_node.child(j) );
-        child_node.child(j).right( child_node.child(j+1) );
-      }
       child_node.child(0).set_left_null();
+
+      for ( std::size_t j = 1; j < child_node.n_entries(); ++j )
+        child_node.child(j).left( child_node.child(j-1) );
+
+      for ( std::size_t j = 0; j < child_node.n_entries()-1; ++j )
+        child_node.child(j).right( child_node.child(j+1) );
+
       child_node.child(child_node.n_entries()-1).set_right_null();
     }
+    */
 
     // Add "new_node" and its bounding boxx to "parent_node"
     parent_node.add_child( new_node_ptr );
@@ -1064,17 +1115,17 @@ private:
   /*------------------------------------------------------------------ 
   | Insert a new object into the RTree structure
   ------------------------------------------------------------------*/
-  void insert_nonfull(Node& node, const ObjectType& object)
+  void insert_nonfull(Node&             node, 
+                      const ObjectType& object,
+                      const BBox&       obj_bbox)
   {
-    const BBox& bb_obj = object.bbox();
-
     // Choose an appropriate leaf to insert the object
-    Node& leaf = choose_leaf_insertion(node, bb_obj);
+    Node& leaf = choose_leaf_insertion(node, obj_bbox);
 
     // If the leaf has enough space to store the object, add it
     if ( leaf.n_entries() < M )
     {
-      leaf.add_object( object );
+      leaf.add_object( object, obj_bbox );
 
       // Update all BBoxes in the path from root to this leaf, 
       // so that all of them cover the object's bbox
