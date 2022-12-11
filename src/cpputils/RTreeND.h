@@ -94,7 +94,9 @@ public:
   bool choose_bbox(const BBoxND<CoordType,Dim>& lhs, 
                    const BBoxND<CoordType,Dim>& rhs)
   {
-    VecND<CoordType,Dim> delta = lhs.lowleft() - rhs.lowleft();
+    VecND<CoordType,Dim> xy_l = (lhs.lowleft() + lhs.upright());
+    VecND<CoordType,Dim> xy_r = (rhs.lowleft() + rhs.upright());
+    VecND<CoordType,Dim> delta = xy_l - xy_r;
 
     for (auto v : delta) 
     {
@@ -174,7 +176,7 @@ public:
       // be assigned to it in order to have the minimum number
       if ( n_n1 + n_remaining == M/2 )
       {
-        ASSERT( n_n2+1 >= M/2, "Error in function RTree::quadratic_split");
+        ASSERT( n_n2 >= M/2, "Error in function RTree::quadratic_split");
         return add_to_n2;
       }
 
@@ -185,7 +187,7 @@ public:
         for ( std::size_t i = 0; i < M; ++i )
           add_to_n2[i] = (distributed[i] == false) ? true : add_to_n2[i];
 
-        ASSERT( n_n1+1 >= M/2, "Error in function RTree::quadratic_split");
+        ASSERT( n_n1 >= M/2, "Error in function RTree::quadratic_split");
         return add_to_n2;
       }
 
@@ -202,8 +204,8 @@ public:
       const BBoxND<CoordType,Dim> cover_1 = bbox_1.bbox_cover(E_i);
       const BBoxND<CoordType,Dim> cover_2 = bbox_2.bbox_cover(E_i);
       
-      const double d1 = cover_1.scale() - bbox_1.scale(); 
-      const double d2 = cover_2.scale() - bbox_2.scale(); 
+      const CoordType d1 = cover_1.scale() - bbox_1.scale(); 
+      const CoordType d2 = cover_2.scale() - bbox_2.scale(); 
 
       bool add_entry_to_n2 = false;
 
@@ -229,10 +231,12 @@ public:
       {
         add_to_n2[i] = true;
         bbox_2       = cover_2;
+        ++n_n2;
       }
       else
       {
         bbox_1 = cover_1;
+        ++n_n1;
       }
     }
 
@@ -256,7 +260,7 @@ private:
   static inline
   std::size_t 
   pick_seeds(const RTreeNodeND<ObjectType,M,CoordType,Dim,SortStrategy>& node, 
-             std::array<bool,M>     distributed,
+             std::array<bool,M>&    distributed,
              std::size_t&           n_remaining,
              BBoxND<CoordType,Dim>& bbox_1,
              BBoxND<CoordType,Dim>& bbox_2) 
@@ -267,7 +271,7 @@ private:
     std::size_t seed_1 = -1;
     std::size_t seed_2 = -1;
 
-    double ineff = 0.0;
+    CoordType ineff = CoordType{};
 
     // Calculate inefficiency of grouping entries together
     for (std::size_t i = 0; i < M; ++i)
@@ -285,7 +289,7 @@ private:
         const BBoxND<CoordType,Dim> J = E_i.bbox_cover(E_j);
 
         // Compute the inefficiency size
-        const double diff = J.scale() - E_i.scale() - E_j.scale();
+        const CoordType diff = J.scale() - E_i.scale() - E_j.scale();
 
         // Choose the most wasteful pair
         if ( diff > ineff )
@@ -325,14 +329,14 @@ private:
   static inline
   std::size_t 
   pick_next(const RTreeNodeND<ObjectType,M,CoordType,Dim,SortStrategy>& node, 
-            std::array<bool,M>     distributed,
+            std::array<bool,M>&    distributed,
             std::size_t&           n_remaining,
             BBoxND<CoordType,Dim>& bbox_1,
             BBoxND<CoordType,Dim>& bbox_2) 
   {
     std::size_t entry = 0;
 
-    double max_diff = 0.0;
+    CoordType max_diff = CoordType{};
 
     // Determine the cost of putting each entry in each group
     for (std::size_t i = 0; i < M; ++i)
@@ -347,10 +351,10 @@ private:
       BBoxND<CoordType,Dim> C_1 = bbox_1.bbox_cover(E_i);
       BBoxND<CoordType,Dim> C_2 = bbox_2.bbox_cover(E_i);
 
-      const double d1 = C_1.scale() - bbox_1.scale();
-      const double d2 = C_2.scale() - bbox_2.scale();
+      const CoordType d1 = C_1.scale() - bbox_1.scale();
+      const CoordType d2 = C_2.scale() - bbox_2.scale();
 
-      const double diff = ABS(d1 - d2);
+      const CoordType diff = ABS(d1 - d2);
 
       // Choose the entry with the maximum difference between d1 and d2
       if ( diff > max_diff )
@@ -927,17 +931,18 @@ public:
     NodeVector node_layer {};
     node_layer.push_back( std::make_unique<Node>(node_id_++) );
 
-    //for ( const ObjectType* obj : sorted_objects )
-    for ( std::size_t i : sorted_indices )
+    for ( std::size_t i = 0; i < sorted_indices.size(); ++i)
     {
+      std::size_t index = sorted_indices[i];
+
       Node& cur_leaf = *node_layer.back().get();
 
-      const ObjectType& cur_obj = objects[i];
-      const BBox& cur_bbox = obj_bboxes[i];
+      const ObjectType& cur_obj  = objects[index];
+      const BBox&       cur_bbox = obj_bboxes[index];
 
       cur_leaf.add_object( cur_obj, cur_bbox );
 
-      if ( cur_leaf.n_entries() >= M-1 )
+      if ( cur_leaf.n_entries() >= M-1 && i+1 < sorted_indices.size() )
         node_layer.push_back( std::make_unique<Node>(node_id_++) );
     }
 
@@ -1008,7 +1013,6 @@ private:
     // child node "child_node" will be added to "new_node"
     std::array<bool,M> add_to_new = SplitStrategy::split( child_node );
 
-
     // Move all remaining child entries into vector
     std::vector<Entry> entries_child {};
     std::vector<Entry> entries_new {};
@@ -1020,6 +1024,13 @@ private:
       else
         entries_child.push_back( std::move( child_node.entry(j) ) );
     }
+
+    ASSERT( entries_new.size() >= M/2, 
+        "RTreeND: Invalid number of entries: " 
+        + std::to_string(entries_new.size()) );
+    ASSERT( entries_child.size() >= M/2, 
+        "RTreeND: Invalid number of entries: " 
+        + std::to_string(entries_child.size()) );
 
     new_node.n_entries( 0 );
     child_node.n_entries( 0 );
@@ -1103,10 +1114,10 @@ private:
     if ( node.is_leaf() )
       return node;
 
-    double m = CPPUTILS_MAX;
+    CoordType m = std::numeric_limits<CoordType>::max();
     std::size_t j = 0;
 
-    double cover_j = node.bbox(j).bbox_cover(object_bbox).scale();
+    CoordType cover_j = node.bbox(j).bbox_cover(object_bbox).scale();
 
     // Find the child-node that has the least enlargement with the 
     // object's bbox
@@ -1115,10 +1126,11 @@ private:
       const BBox& child_bbox = node.bbox(i);
 
       // Compute enlargement
-      const double c = child_bbox.bbox_union(object_bbox)
-                     - child_bbox.scale();
+      const CoordType c = child_bbox.bbox_union(object_bbox)
+                         - child_bbox.scale();
 
-      const double cover_i = node.bbox(i).bbox_cover(object_bbox).scale();
+      const CoordType cover_i 
+        = node.bbox(i).bbox_cover(object_bbox).scale();
 
       // Choose the entry, that needs the least enlargement to 
       // include the object's bbox
@@ -1132,10 +1144,11 @@ private:
     }
 
     // In case that the found child is full, split it in two
-    // nodes
+    // nodes & and run search for leaf in this layer again
     if ( node.child(j).n_entries() == M )
     {
       split_child(node, j);
+      return choose_leaf_insertion( node, object_bbox );
     }
 
     return choose_leaf_insertion( node.child(j), object_bbox );

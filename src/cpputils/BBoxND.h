@@ -44,7 +44,7 @@ public:
   {
     scale_ = (ur-ll).product();
 
-    ASSERT( scale_ > 0, 
+    ASSERT( scale_ >= 0, 
       "BBoxND: Invalid bounding box definition. "
       "Box size equals to " + std::to_string(scale_) );
   }

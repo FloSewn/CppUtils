@@ -92,6 +92,37 @@ void constructor()
 } // constructor()
 
 /*--------------------------------------------------------------------
+| Test 1D tree
+--------------------------------------------------------------------*/
+void insertion_1d()
+{
+  RTreeND<int,4,int,1> tree {};
+
+  std::vector<int> values;
+  std::vector<BBoxND<int,1>> bboxes;
+
+  for ( std::size_t i = 0; i < 31; ++i )
+    values.push_back( i );
+
+  for ( auto v : values )
+    bboxes.push_back( {v, v} );
+
+  RTreeNDWriter writer { tree };
+
+  //tree.insert( values, bboxes );
+
+  for (std::size_t i = 0; i < values.size(); ++i)
+  {
+    tree.insert( values[i], bboxes[i] );
+    writer.print(std::cout);
+    std::cout << "- - - - \n\n";
+  }
+
+
+
+} // insertion_1d()
+
+/*--------------------------------------------------------------------
 | Test bulk insertion of many objects
 --------------------------------------------------------------------*/
 void bulk_insertion_2d()
@@ -194,10 +225,10 @@ void bulk_insertion_3d()
   values.push_back( 5 );
   bboxes.push_back( { {2.0,2.0,2.0}, {2.5,2.5,2.5} } );
 
-  tree.insert( values, bboxes );
+  //tree.insert( values, bboxes );
 
-  //for (std::size_t i = 0; i < values.size(); ++i)
-  //  tree.insert( values[i], bboxes[i] );
+  for (std::size_t i = 0; i < values.size(); ++i)
+    tree.insert( values[i], bboxes[i] );
 
   // Export tree structure
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
@@ -222,6 +253,10 @@ void bulk_insertion_3d()
 void run_tests_RTreeND()
 {
   RTreeNDTests::constructor();
+
+  std::cout << "-----------------------------------------" << std::endl;
+
+  RTreeNDTests::insertion_1d();
 
   std::cout << "-----------------------------------------" << std::endl;
 
