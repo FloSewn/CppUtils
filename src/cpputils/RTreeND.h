@@ -942,7 +942,7 @@ public:
 
       cur_leaf.add_object( cur_obj, cur_bbox );
 
-      if ( cur_leaf.n_entries() >= M-1 && i+1 < sorted_indices.size() )
+      if ( cur_leaf.n_entries() >= M && i+1 < sorted_indices.size() )
         node_layer.push_back( std::make_unique<Node>(node_id_++) );
     }
 

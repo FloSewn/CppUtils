@@ -96,7 +96,7 @@ void constructor()
 --------------------------------------------------------------------*/
 void insertion_1d()
 {
-  RTreeND<int,4,int,1> tree {};
+  RTreeND<int,5,int,1> tree {};
 
   std::vector<int> values;
   std::vector<BBoxND<int,1>> bboxes;
@@ -107,15 +107,15 @@ void insertion_1d()
   for ( auto v : values )
     bboxes.push_back( {v, v} );
 
-  RTreeNDWriter writer { tree };
+  //RTreeNDWriter writer { tree };
 
   //tree.insert( values, bboxes );
 
   for (std::size_t i = 0; i < values.size(); ++i)
   {
     tree.insert( values[i], bboxes[i] );
-    writer.print(std::cout);
-    std::cout << "- - - - \n\n";
+    //writer.print(std::cout);
+    //std::cout << "- - - - \n\n";
   }
 
 
@@ -175,27 +175,15 @@ void bulk_insertion_2d()
   auto& root = tree.root();
   auto& c_0 = root.child(0);
   auto& c_1 = root.child(1);
+  auto& c_2 = root.child(2);
 
-  CHECK( c_0.left()  == nullptr );
   CHECK( c_0.right() == &c_1 );
-  CHECK( c_1.left()  == &c_0 );
-  CHECK( c_1.right() == nullptr );
+  CHECK( c_1.right() == &c_2 );
+  CHECK( c_2.right() == nullptr );
 
-  auto& c_0_0 = c_0.child(0);
-  auto& c_0_1 = c_0.child(1);
-
-  CHECK( c_0_0.left()  == nullptr );
-  CHECK( c_0_0.right() == &c_0_1 );
-  CHECK( c_0_1.left()  == &c_0_0 );
-  CHECK( c_0_1.right() == nullptr );
-
-  auto& c_1_0 = c_1.child(0);
-  auto& c_1_1 = c_1.child(1);
-
-  CHECK( c_1_0.left()  == nullptr );
-  CHECK( c_1_0.right() == &c_1_1 );
-  CHECK( c_1_1.left()  == &c_1_0 );
-  CHECK( c_1_1.right() == nullptr );
+  CHECK( c_0.left() == nullptr );
+  CHECK( c_1.left() == &c_0 );
+  CHECK( c_2.left() == &c_1 );
 
 
 } // bulk_insertion_2d()
@@ -225,10 +213,10 @@ void bulk_insertion_3d()
   values.push_back( 5 );
   bboxes.push_back( { {2.0,2.0,2.0}, {2.5,2.5,2.5} } );
 
-  //tree.insert( values, bboxes );
+  tree.insert( values, bboxes );
 
-  for (std::size_t i = 0; i < values.size(); ++i)
-    tree.insert( values[i], bboxes[i] );
+  //for (std::size_t i = 0; i < values.size(); ++i)
+  //  tree.insert( values[i], bboxes[i] );
 
   // Export tree structure
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
