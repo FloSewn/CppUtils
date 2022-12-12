@@ -436,11 +436,6 @@ private:
 
 
 /*********************************************************************
-* References
-* ----------
-* - https://tildesites.bowdoin.edu/~ltoma/teaching/cs340/spring08/\
-*   Papers/Rtree-chap1.pdf
-*
 * Some definitions on R-Trees:
 * ----------------------------
 * - Each leaf node (unless it is root) can host up to M entries
@@ -453,6 +448,11 @@ private:
 *   pointer to a child of the node and bbox is the minimum bounding 
 *   rectangle that spatially contains the bboxs that are contained in 
 *   the child
+*
+* References
+* ----------
+* - https://tildesites.bowdoin.edu/~ltoma/teaching/cs340/spring08/\
+*   Papers/Rtree-chap1.pdf
 *
 *********************************************************************/
 template 
@@ -771,6 +771,11 @@ private:
 /*********************************************************************
 * This class defines the interface to an R-tree structure 
 * for N-dimensional simplices
+*
+* References
+* ----------
+* - Custom iterator implementation: https://www.internalpointers.\
+*   com/post/writing-custom-iterators-modern-cpp
 *********************************************************************/
 template 
 <
@@ -794,6 +799,120 @@ public:
   using Entries    = std::array<Entry,M>;
 
   /*------------------------------------------------------------------ 
+  | Iterator implementation
+  ------------------------------------------------------------------*/
+  struct Iterator
+  {
+    using iterator_category = std::forward_iterator_tag;
+    using difference_type   = std::ptrdiff_t;
+    using value_type        = ObjectType;
+    using pointer           = ObjectType*;
+    using reference         = ObjectType&;
+
+    Iterator() {}
+    Iterator(Node& node) : cur_node_ {&node} 
+    { 
+      if ( (*cur_node_).n_entries() == 0 )
+        cur_node_ = nullptr;
+    }
+
+    reference operator*() const 
+    { return cur_node_->object(cur_index_); }
+
+    pointer operator->() 
+    { return &(cur_node_->object(cur_index_)); }
+
+    Iterator& operator++() 
+    { 
+      ++cur_index_;
+
+      if ( cur_index_ == (*cur_node_).n_entries() )
+      {
+        cur_node_  = cur_node_->right();
+        cur_index_ = 0;
+      }
+    }
+
+    Iterator operator++(int) 
+    { Iterator tmp = *this; ++(*this); return tmp; }
+
+    friend bool operator== (const Iterator& a, const Iterator& b) 
+    { return (   a.cur_node_ == b.cur_node_ 
+              && a.cur_index_ == b.cur_index_); }
+
+    friend bool operator!= (const Iterator& a, const Iterator& b) 
+    { return !(a == b); }
+
+  private:
+    Node* cur_node_ { nullptr };
+    std::size_t cur_index_ { 0 };
+
+  }; // Iterator 
+
+  /*------------------------------------------------------------------ 
+  | ConstantIterator implementation
+  ------------------------------------------------------------------*/
+  struct ConstantIterator
+  {
+    using iterator_category = std::forward_iterator_tag;
+    using difference_type   = std::ptrdiff_t;
+    using value_type        = ObjectType;
+    using pointer           = ObjectType*;
+    using reference         = ObjectType&;
+
+    ConstantIterator() {}
+    ConstantIterator(Node& node) : cur_node_ {&node} 
+    { 
+      if ( (*cur_node_).n_entries() == 0 )
+        cur_node_ = nullptr;
+    }
+
+    const reference operator*() const 
+    { return cur_node_->object(cur_index_); }
+
+    const pointer operator->() 
+    { return &(cur_node_->object(cur_index_)); }
+
+    ConstantIterator& operator++() 
+    { 
+      ++cur_index_;
+
+      if ( cur_index_ == (*cur_node_).n_entries() )
+      {
+        cur_node_  = cur_node_->right();
+        cur_index_ = 0;
+      }
+    }
+
+    ConstantIterator operator++(int) 
+    { ConstantIterator tmp = *this; ++(*this); return tmp; }
+
+    friend bool operator== 
+    (const ConstantIterator& a, const ConstantIterator& b) 
+    { return (   a.cur_node_ == b.cur_node_ 
+              && a.cur_index_ == b.cur_index_); }
+
+    friend bool operator!= 
+    (const ConstantIterator& a, const ConstantIterator& b) 
+    { return !(a == b); }
+
+  private:
+    Node* cur_node_ { nullptr };
+    std::size_t cur_index_ { 0 };
+
+  }; // ConstantIterator 
+
+
+  Iterator begin() { return Iterator( leaf_leftmost() ); }
+  Iterator end() { return Iterator(); }
+
+  ConstantIterator cbegin() const 
+  { return ConstantIterator( leaf_leftmost() ); }
+  ConstantIterator cend() const 
+  { return ConstantIterator(); }
+
+
+  /*------------------------------------------------------------------ 
   | Constructor
   ------------------------------------------------------------------*/
   RTreeND()
@@ -813,12 +932,34 @@ public:
   std::size_t height() const 
   {
     std::size_t height = 0;
-
     height = (*root_).increment_tree_height(height);
-
     return height;
+  } 
 
-  } // RTreeND::height()
+  /*------------------------------------------------------------------ 
+  | This function returns the leftmost leaf in the tree
+  ------------------------------------------------------------------*/
+  Node& leaf_leftmost() const
+  {
+    Node* node = root_.get();
+    while ( !(*node).is_leaf() )
+      node = (*node).child_ptr(0).get();
+    return *node;
+  }
+
+  /*------------------------------------------------------------------ 
+  | This function returns the rightmost leaf in the tree
+  ------------------------------------------------------------------*/
+  Node& leaf_rightmost() const
+  {
+    Node* node = root_.get();
+    while ( !(*node).is_leaf() )
+    {
+      std::size_t n = (*node).n_entries();
+      node = (*node).child_ptr(n-1).get();
+    }
+    return *node;
+  }
 
   /*------------------------------------------------------------------ 
   | 
@@ -1058,6 +1199,9 @@ private:
     // Add "new_node" and its bounding boxx to "parent_node"
     parent_node.add_child( new_node_ptr );
 
+    ASSERT( child_node.right() == &new_node, "Invalid child split.");
+    ASSERT( new_node.left() == &child_node, "Invalid child split.");
+
     // Compute the covering bboxes for all entries of "parent node"
     for (std::size_t j = 0; j < parent_node.n_entries(); ++j)
     {
@@ -1203,6 +1347,8 @@ private:
     (*new_root).is_leaf(false);
     (*new_root).add_child( root_ );
     root_ = std::move(new_root);
+
+    ASSERT( (*root_).n_entries() == 1, "Invalid root node.");
     //root_->child(0).parent(*root_);   // maybe needed?
 
   } // RTreeND::add_root_node()
