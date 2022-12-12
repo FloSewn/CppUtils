@@ -83,10 +83,15 @@ void constructor()
   auto& c_0_0 = c_0.child(0);
   auto& c_0_1 = c_0.child(1);
 
-  CHECK( c_0_0.left()  == nullptr );
+  auto& c_1_0 = c_1.child(0);
+
   CHECK( c_0_0.right() == &c_0_1 );
-  CHECK( c_0_1.left()  == &c_0_0 );
-  CHECK( c_0_1.right() == nullptr );
+  CHECK( c_0_1.right() == &c_1_0 );
+  CHECK( c_1_0.right() == nullptr );
+
+  CHECK( c_1_0.left() == &c_0_1 );
+  CHECK( c_0_1.left() == &c_0_0 );
+  CHECK( c_0_0.left()  == nullptr );
 
 
 } // constructor()
@@ -96,28 +101,55 @@ void constructor()
 --------------------------------------------------------------------*/
 void insertion_1d()
 {
-  RTreeND<int,5,int,1> tree {};
+  RTreeND<int,13,int,1> tree {};
+  //RTreeNDWriter writer { tree };
 
   std::vector<int> values;
   std::vector<BBoxND<int,1>> bboxes;
 
-  for ( std::size_t i = 0; i < 31; ++i )
+  int k = 100;
+
+  for ( std::size_t i = 0; i < k; ++i )
     values.push_back( i );
 
   for ( auto v : values )
     bboxes.push_back( {v, v} );
 
-  //RTreeNDWriter writer { tree };
+  //for (std::size_t i = 0; i < values.size(); ++i)
+  //  tree.insert( values[i], bboxes[i] );
 
-  //tree.insert( values, bboxes );
+  tree.insert( values, bboxes );
 
-  for (std::size_t i = 0; i < values.size(); ++i)
+  //writer.print(std::cout);
+
+
+  int s1 = std::accumulate(tree.cbegin(), tree.cend(), 0);
+  int s2 = std::accumulate(values.cbegin(), values.cend(), 0);
+
+  CHECK( s1 == s2 );
+
+  // Check for correct leaf order and check tree iterator behaviour
+  std::size_t i = 0;
+  for ( auto& it : tree )
+    CHECK( &it == &(values[i++]) );
+
+  i = 0;
+  for ( auto it : tree )
   {
-    tree.insert( values[i], bboxes[i] );
-    //writer.print(std::cout);
-    //std::cout << "- - - - \n\n";
+    CHECK(  it ==   values[i]  );
+    CHECK( &it != &(values[i++]) );
   }
 
+  i = 0;
+  for ( const auto& it : tree )
+    CHECK( &it == &(values[i++]) );
+
+  i = 0;
+  for ( const auto it : tree )
+  {
+    CHECK(  it ==   values[i]  );
+    CHECK( &it != &(values[i++]) );
+  }
 
 
 } // insertion_1d()

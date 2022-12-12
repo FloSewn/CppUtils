@@ -475,7 +475,7 @@ public:
   /*------------------------------------------------------------------ 
   | Constructor
   ------------------------------------------------------------------*/
-  RTreeNodeND(int id) { id_ = id; }
+  RTreeNodeND(std::size_t id) : id_ { id } {}
 
   /*------------------------------------------------------------------ 
   | Getter
@@ -489,12 +489,58 @@ public:
   bool is_leaf() const { return is_leaf_; }
   std::size_t n_entries() const { return n_entries_; }
   std::size_t id() const { return id_; }
+  std::size_t index() const { return index_; }
 
-  Node* left() { return left_; }
-  const Node* left() const { return left_; }
+  /*------------------------------------------------------------------ 
+  | Return the node, which is located in the same layer one place
+  | to the left
+  ------------------------------------------------------------------*/
+  Node* left() const
+  { 
+    Node* parent_node = parent_;
 
-  Node* right() { return right_; }
-  const Node* right() const { return right_; }
+    if ( !parent_node )
+      return nullptr;
+
+    std::size_t i = index_;
+
+    if ( i > 0 ) 
+      return (*parent_node).child_ptr(--i).get();
+
+    parent_node = (*parent_node).left();
+
+    if ( parent_node )
+    {
+      i = (*parent_node).n_entries();
+      return (*parent_node).child_ptr(--i).get();
+    }
+
+    return nullptr; 
+  }
+
+  /*------------------------------------------------------------------ 
+  | Return the node, which is located in the same layer one place
+  | to the left
+  ------------------------------------------------------------------*/
+  Node* right() const
+  { 
+    Node* parent_node = parent_;
+
+    if ( !parent_node )
+      return nullptr;
+
+    std::size_t i = index_;
+
+    if ( i+2 <= (*parent_node).n_entries() ) 
+      return (*parent_node).child_ptr(++i).get();
+
+    parent_node = (*parent_node).right();
+
+    if ( parent_node )
+      return (*parent_node).child_ptr(0).get();
+
+    return nullptr; 
+  }
 
   /*------------------------------------------------------------------ 
   | Setter
@@ -505,12 +551,7 @@ public:
   void is_leaf(bool t) { is_leaf_ = t; }
   void n_entries(std::size_t n) { n_entries_ = n; }
   void id(std::size_t i) { id_ = i; }
-
-  void left(Node& n) { left_ = &n; }
-  void right(Node& n) { right_ = &n; }
-
-  void set_left_null() { left_ = nullptr; }
-  void set_right_null() { right_ = nullptr; }
+  void index(std::size_t index) { index_ = index; }
 
   /*------------------------------------------------------------------ 
   | Function used to estimate the tree height
@@ -735,20 +776,8 @@ public:
     // Finally add the new child
     this->bbox(i, child.bbox()); 
     this->child(i, child_ptr);
-    child.parent( *this );
-
-    // Set connectivity between child nodes
-    if ( i > 0 )
-    {
-      child.left( this->child(i-1) );
-      this->child(i-1).right( child );
-    }
-    
-    if ( i < this->n_entries() - 1 )
-    {
-      child.right( this->child(i+1) );
-      this->child(i+1).left( child );
-    }
+    child.parent(*this);
+    child.index(i);
 
   } // add_child()
 
@@ -762,8 +791,7 @@ private:
   bool                is_leaf_   { true };
   std::size_t         n_entries_ { 0 };
   std::size_t         id_        { 0 };
-  Node*               left_      { nullptr };
-  Node*               right_     { nullptr };
+  std::size_t         index_     { 0 };
 
 }; // RTreeNodeND
 
@@ -1084,7 +1112,10 @@ public:
       cur_leaf.add_object( cur_obj, cur_bbox );
 
       if ( cur_leaf.n_entries() >= M && i+1 < sorted_indices.size() )
+      {
         node_layer.push_back( std::make_unique<Node>(node_id_++) );
+        (*node_layer.back()).index( node_layer.size() - 1 );
+      }
     }
 
     // Recursively pack nodes into a node layer at the 
@@ -1105,17 +1136,6 @@ public:
       root.bbox(i, cur_child.bbox() );
       root.child(i, node_layer[i] );
     }
-
-    // Set connectivity for children of root node
-    root.child(0).set_left_null();
-
-    for ( std::size_t i = 1; i < root.n_entries(); ++i )
-      root.child(i).left( root.child(i-1) );
-
-    for ( std::size_t i = 0; i < root.n_entries()-1; ++i )
-      root.child(i).right( root.child(i+1) );
-
-    root.child(root.n_entries()-1).set_right_null();
       
   } // RTreeND::insert()
 
@@ -1149,6 +1169,8 @@ private:
     Node& new_node = *new_node_ptr;
 
     new_node.is_leaf( child_node.is_leaf() );
+
+    ASSERT( new_node.index() < M, "Invalid R-Tree structure.");
 
     // This array contains the information, which entries of the 
     // child node "child_node" will be added to "new_node"
@@ -1191,16 +1213,10 @@ private:
 
       for ( Entry& e : entries_child )
         child_node.add_child( e.child_ptr() );
-
-      child_node.child(0).set_left_null();
-      child_node.child(child_node.n_entries()-1).set_right_null();
     }
 
     // Add "new_node" and its bounding boxx to "parent_node"
     parent_node.add_child( new_node_ptr );
-
-    ASSERT( child_node.right() == &new_node, "Invalid child split.");
-    ASSERT( new_node.left() == &child_node, "Invalid child split.");
 
     // Compute the covering bboxes for all entries of "parent node"
     for (std::size_t j = 0; j < parent_node.n_entries(); ++j)
@@ -1214,6 +1230,10 @@ private:
 
       parent_node.bbox( j, cover );
     }
+
+    // Check some stuff
+    ASSERT( child_node.right() == &new_node, "Invalid child split.");
+    ASSERT( new_node.left() == &child_node, "Invalid child split.");
 
   } // RTreeND::split_child()
 
@@ -1403,6 +1423,7 @@ private:
         parent_nodes.push_back(
           std::make_unique<Node>(node_id_++)
         );
+        (*parent_nodes.back()).index( parent_nodes.size() - 1 );
       }
 
       Node& cur_node = *parent_nodes.back().get();
