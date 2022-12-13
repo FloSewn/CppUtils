@@ -709,12 +709,12 @@ public:
   void add_object(const ObjectType& object, const BBox& obj_bbox)
   {
     const std::size_t n_entries = this->n_entries();
+
     ASSERT( n_entries < M, "RTreeNodeND: Can not add more than " 
         + std::to_string(M) + " objects.");
     ASSERT( is_leaf(), "RTreeNodeND: Can not add object to "
         "non-leaf node.");
 
-    //std::size_t i = 0;
     std::size_t i = n_entries;
 
     // Obtain index i at which all former object entries are located
@@ -732,7 +732,7 @@ public:
     for (std::size_t j = n_entries; j > i; --j)
     {
       this->bbox(j, this->bbox(j-1));
-      this->object(i, this->object(j-1));
+      this->object(j, this->object(j-1));
     }
 
     // Finally add the new object
@@ -744,14 +744,15 @@ public:
   /*------------------------------------------------------------------ 
   | Add new child to the node
   ------------------------------------------------------------------*/
-  void add_child(Node_ptr& child_ptr, bool sort=true)
+  void add_child(Node_ptr& child_ptr)
   {
     Node& child = *child_ptr;
     const std::size_t n_entries = this->n_entries();
 
-    ASSERT( n_entries < M && !is_leaf(), 
-        "RTreeNodeND: Can not add more than " 
+    ASSERT( n_entries < M, "RTreeNodeND: Can not add more than " 
         + std::to_string(M) + " children.");
+    ASSERT( !is_leaf(), "RTreeNodeND: Can not add child to "
+        "non-leaf node.");
 
     std::size_t i = n_entries;
 
@@ -780,6 +781,52 @@ public:
     child.index(i);
 
   } // add_child()
+
+  /*------------------------------------------------------------------ 
+  | Remove the object at a given index 
+  ------------------------------------------------------------------*/
+  void remove_object(std::size_t index)
+  {
+    const std::size_t n_entries = this->n_entries();
+
+    ASSERT( n_entries > 0, "RTreeNodeND: Invalid object removal." );
+    ASSERT( is_leaf(), "RTreeNodeND: Can not remove object from "
+        "non-leaf node.");
+
+    // Shift remaining entries to the left
+    for (std::size_t j = index; j < n_entries-1; ++j)
+    {
+      this->bbox(j, this->bbox(j+1));
+      this->object(j, this->object(j+1));
+    }
+
+    this->n_entries( n_entries - 1 );
+
+  } // remove_object()
+
+  /*------------------------------------------------------------------ 
+  | Remove the child at a given index 
+  ------------------------------------------------------------------*/
+  void remove_child(std::size_t index)
+  {
+    const std::size_t n_entries = this->n_entries();
+     
+    ASSERT( n_entries > 0, "RTreeNodeND: Invalid child node removal." );
+    ASSERT( !is_leaf(), "RTreeNodeND: Can not remove child from "
+        "leaf node.");
+
+    // Shift remaining entries to the left
+    for (std::size_t j = index; j < n_entries-1; ++j)
+    {
+      this->bbox(j, this->bbox(j+1));
+      this->child(j, this->child_ptr(j+1));
+
+      this->child(j).index(j);
+    }
+
+    this->n_entries( n_entries - 1 );
+
+  } // remove_child()
 
 private:
   /*------------------------------------------------------------------ 
@@ -993,46 +1040,32 @@ public:
   | 
   | 
   ------------------------------------------------------------------*/
-  bool remove(const ObjectType& obj)
+  bool remove(const ObjectType& obj, const BBox& obj_bbox)
   {
     if ( root_->n_entries() < 1 )
       return false;
 
     // Check if the object is contained in the R-Tree region
-    if ( !root_->bbox().bbox_inside_touch( obj.bbox() ) )
+    if ( !root_->bbox().bbox_inside_touch( obj_bbox ) )
       return false;
 
     // Find the node & index of the respective entry to remove
     std::size_t i_entry {};
-    Node* node_ptr = find_object_to_remove(obj, *root_, i_entry);
+    Node* node_ptr = find_object_to_remove(obj, obj_bbox, 
+                                           *root_, i_entry);
 
     // Return if no node is found 
     if ( node_ptr == nullptr )
       return false;
 
+    // Remove the object
     Node& node = *node_ptr;
+    node.remove_object( i_entry );
 
-    //if ( node.n_entries() >= M/2 + 1 )
+    // Re-balance the tree
+    condense_tree( node );
 
-
-    // Remove entry from node
-    //
-    // If node.n_entries() >= M/2 + 1
-    //   Simply remove the entry and maybe shift following 
-    //   entries to the front
-    // Else
-    //   Compute number N of entries among all nodes that belong
-    //   to the curren node's parent 
-    //
-    //   Either take an entry from the left node in the current layer
-    //   -> take_from_left_node()
-    //
-    //   Otherwise if not enough entries, remove layer and distribute
-    //   remaining entries among nodes in next layer
-    //
-    //remove_node_entry(node, i_entry);
-
-
+    return true;
 
   } // RTreeND::remove(ObjectType)
 
@@ -1040,8 +1073,61 @@ public:
   /*------------------------------------------------------------------ 
   | 
   ------------------------------------------------------------------*/
+  void condense_tree(Node& node)
+  {
+    // Just update the parent bboxes if the given node still contains
+    // enough other objects
+    // --> Do this also if root is leaf
+    if ( node.n_entries() >= M/2 || !node.parent() )
+    {
+      update_parent_bbox(node);
+      return;
+    }
+
+    // Pick all objects of children that will be removed
+    std::vector<const ObjectType*> objects { };
+    std::vector<BBox> obj_bboxes {};
+
+    Node* cur_node_ptr = &node;
+
+    // Traverse until root 
+    while ( (*cur_node_ptr).parent() )
+    {
+      Node& cur_node    = *cur_node_ptr;
+      Node& parent_node = *cur_node.parent();
+
+      if ( cur_node.n_entries() < M/2 )
+      {
+        // Store remaining objects of leaf nodes
+        if ( cur_node.is_leaf() )
+        {
+          for (std::size_t i = 0; i < cur_node.n_entries(); ++i )
+          {
+            objects.push_back( &cur_node.object(i) );
+            obj_bboxes.push_back( cur_node.bbox(i) );
+          }
+        }
+
+        // Remove node
+        std::size_t i = cur_node.index();
+        parent_node.remove_child(i);
+      }
+
+      cur_node_ptr = &parent_node;
+    }
+
+    // Re-insert remaining objects in tree
+    for ( std::size_t i = 0; i < objects.size(); ++i )
+      this->insert(*objects[i], obj_bboxes[i]);
+
+  } // condense_tree()
+
+  /*------------------------------------------------------------------ 
+  | 
+  ------------------------------------------------------------------*/
   Node* find_object_to_remove(const ObjectType& obj, 
-                              const Node& node,
+                              const BBox& obj_bbox,
+                              Node& node,
                               std::size_t &i_entry) 
   {
     // Node is a leaf node: Check if the given object is one of 
@@ -1060,8 +1146,9 @@ public:
     // Otherwise: Check if the given object is contained in one
     // of the node's children
     for (std::size_t i = 0; i < node.n_entries(); ++i)
-      if ( node.bbox(i).bbox_inside_touch( obj.bbox() ) )
-        return find_object_to_remove(obj, node.child(i), i_entry);
+      if ( node.bbox(i).bbox_inside_touch( obj_bbox ) )
+        return find_object_to_remove(obj, obj_bbox, 
+                                     node.child(i), i_entry);
 
     return nullptr;
 
@@ -1232,8 +1319,17 @@ private:
     }
 
     // Check some stuff
-    ASSERT( child_node.right() == &new_node, "Invalid child split.");
-    ASSERT( new_node.left() == &child_node, "Invalid child split.");
+    ASSERT( child_node.right() == &new_node, 
+        "Invalid child split (1). child_node id: " 
+        + std::to_string(child_node.index()) 
+        + " new_node id: " + std::to_string(new_node.index())
+        + " is_leaf: " + std::to_string(new_node.is_leaf()));
+
+    ASSERT( new_node.left() == &child_node, 
+        "Invalid child split (2). child_node id: " 
+        + std::to_string(child_node.index()) 
+        + " new_node id: " + std::to_string(new_node.index())
+        + " is_leaf: " + std::to_string(new_node.is_leaf()));
 
   } // RTreeND::split_child()
 
@@ -1330,8 +1426,7 @@ private:
 
     Node& parent_node = (*node.parent());
 
-    ASSERT( !parent_node.is_leaf(),
-        "Invalid data structure of rtree.");
+    ASSERT( !parent_node.is_leaf(), "Invalid RTree data structure.");
 
     // If "node" is the "i"-th child of "parent_node", then 
     // "parent_node.bbox(i)" is the bbox, that covers all entries
@@ -1342,7 +1437,7 @@ private:
     while ( &parent_node.child(i) != &node )
     {
       ++i;
-      ASSERT( i < M, "Invalid data structure of R-tree");
+      ASSERT( i < M, "Invalid RTree data structure.");
     }
 
     BBox cover = node.bbox(0);
