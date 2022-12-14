@@ -9,6 +9,8 @@
 #include <memory>
 #include <vector>
 #include <cassert>
+#include <algorithm>
+#include <random>
 
 #include <CppUtilsConfig.h>
 
@@ -94,6 +96,15 @@ void constructor()
   CHECK( c_0_0.left()  == nullptr );
 
 
+  // Removal
+  tree.remove(values[0], bboxes[0]);
+  tree.remove(values[1], bboxes[1]);
+  tree.remove(values[2], bboxes[2]);
+  tree.remove(values[3], bboxes[3]);
+  tree.remove(values[4], bboxes[4]);
+  tree.remove(values[5], bboxes[5]);
+  tree.remove(values[6], bboxes[6]);
+
 } // constructor()
 
 /*--------------------------------------------------------------------
@@ -101,13 +112,14 @@ void constructor()
 --------------------------------------------------------------------*/
 void insertion_1d()
 {
-  RTreeND<int,13,int,1> tree {};
-  //RTreeNDWriter writer { tree };
+  RTreeND<int,3,int,1> tree {};
+  RTreeNDWriter writer { tree };
 
   std::vector<int> values;
   std::vector<BBoxND<int,1>> bboxes;
 
-  int k = 100;
+  int k = 13;
+  int n = 13;
 
   for ( std::size_t i = 0; i < k; ++i )
     values.push_back( i );
@@ -115,18 +127,20 @@ void insertion_1d()
   for ( auto v : values )
     bboxes.push_back( {v, v} );
 
-  //for (std::size_t i = 0; i < values.size(); ++i)
-  //  tree.insert( values[i], bboxes[i] );
+  // Permutate objects
+  std::vector<size_t> perm_ids( values.size() );
+  std::iota(perm_ids.begin(), perm_ids.end(), 0);
 
-  tree.insert( values, bboxes );
+  auto rng = std::default_random_engine {};
+  std::shuffle(perm_ids.begin(), perm_ids.end(), rng);
 
-  //writer.print(std::cout);
+  for (std::size_t i = 0; i < n; ++i)
+    tree.insert( values[perm_ids[i]], bboxes[perm_ids[i]] );
 
+  //tree.insert( values, bboxes );
 
-  int s1 = std::accumulate(tree.cbegin(), tree.cend(), 0);
-  int s2 = std::accumulate(values.cbegin(), values.cend(), 0);
+  writer.print(std::cout);
 
-  CHECK( s1 == s2 );
 
   // Check for correct leaf order and check tree iterator behaviour
   std::size_t i = 0;
@@ -150,6 +164,12 @@ void insertion_1d()
     CHECK(  it ==   values[i]  );
     CHECK( &it != &(values[i++]) );
   }
+
+
+  //int s1 = std::accumulate(tree.cbegin(), tree.cend(), 0);
+  //int s2 = std::accumulate(values.cbegin(), values.cend(), 0);
+
+  //CHECK( s1 == s2 );
 
 
 } // insertion_1d()

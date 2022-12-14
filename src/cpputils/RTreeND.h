@@ -772,6 +772,7 @@ public:
     {
       this->bbox(j, this->bbox(j-1));
       this->child(j, this->child_ptr(j-1));
+      this->child(j).index(j);
     }
 
     // Finally add the new child
@@ -1374,7 +1375,7 @@ private:
     if ( node.is_leaf() )
       return node;
 
-    CoordType m = std::numeric_limits<CoordType>::max();
+    CoordType max_enlarge = std::numeric_limits<CoordType>::max();
     std::size_t j = 0;
 
     CoordType cover_j = node.bbox(j).bbox_cover(object_bbox).scale();
@@ -1386,20 +1387,21 @@ private:
       const BBox& child_bbox = node.bbox(i);
 
       // Compute enlargement
-      const CoordType c = child_bbox.bbox_union(object_bbox)
-                         - child_bbox.scale();
-
+      const CoordType union_i = child_bbox.bbox_union(object_bbox);
       const CoordType cover_i 
         = node.bbox(i).bbox_cover(object_bbox).scale();
+
+      const CoordType enlarge = cover_i - union_i;
 
       // Choose the entry, that needs the least enlargement to 
       // include the object's bbox
       // In case of ties, use the entry with the smalles size
-      if ( ( c < m ) ||
-           ( EQ(c, m) && cover_i < cover_j ) )
+      if ( ( enlarge < max_enlarge ) ||
+           ( EQ(enlarge, max_enlarge) && cover_i < cover_j ) )
       {
-        m = c;
+        max_enlarge = enlarge;
         j = i;
+        cover_j = cover_i;
       }
     }
 
@@ -1747,7 +1749,20 @@ private:
 
       os << "*-[" << node.id() << " | " << level 
          << " - " << i+1 << "/" << node.n_entries() << "]: ";
-      os << node.bbox(i) << "\n";
+      os << node.bbox(i);
+
+      os << " - Local index: " << node.index();
+
+      if ( node.left() )
+        os << " - Left: " << (*node.left()).id();
+      else
+        os << " - Left: NULL";
+
+      if ( node.right() )
+        os << " - Right: " << (*node.right()).id();
+      else
+        os << " - Right: NULL";
+      os << "\n";
 
       if ( !node.is_leaf() )
         print_node(node.child(i), os, level+1);

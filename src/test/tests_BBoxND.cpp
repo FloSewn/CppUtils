@@ -151,6 +151,22 @@ void intersection()
 
 } // intersection()
 
+/*--------------------------------------------------------------------
+| Test 1d sets
+--------------------------------------------------------------------*/
+void bbox_1d()
+{
+  BBoxND<int, 1> a { 7, 7 };
+  BBoxND<int, 1> b { 11, 12 };
+
+  CHECK( a.scale() == 0 );
+  CHECK( b.scale() == 1 );
+
+  CHECK( a.bbox_intersection(b) == 0 );
+  CHECK( b.bbox_intersection(a) == 0 );
+
+} // bbox_1d()
+
 } // namespace BBoxNDTests
 
 
@@ -161,5 +177,6 @@ void run_tests_BBoxND()
 {
   BBoxNDTests::constructor();
   BBoxNDTests::intersection();
+  BBoxNDTests::bbox_1d();
 
 } // run_tests_BBoxND()
