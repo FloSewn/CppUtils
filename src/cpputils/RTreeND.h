@@ -1,6 +1,6 @@
 /*
 * This file is part of the CppUtils library.  
-* This code was written by Florian Setzwein in 2022, 
+* This code was written by Florian Setzwein, 
 * and is covered under the MIT License
 * Refer to the accompanying documentation for details
 * on usage and license.
@@ -25,31 +25,52 @@
 
 namespace CppUtils {
 
+
+// ObjectType.... Contained object
+// M............. Max. element number 
+// CoordType..... Coordinate type
+// Dim........... Dimensions
+// SortStrategy.. Sorting strategy
+// SplitStrategy. Splitting strategy
+  
+#ifndef RTREE_NODE_DEF
+#define RTREE_NODE_DEF       \
+    typename    ObjectType,  \
+    std::size_t M,           \
+    typename    CoordType,   \
+    std::size_t Dim,         \
+    typename    SortStrategy  
+#endif
+
+#ifndef RTREE_TREE_DEF
+#define RTREE_TREE_DEF        \
+    typename    ObjectType,   \
+    std::size_t M,            \
+    typename    CoordType,    \
+    std::size_t Dim,          \
+    typename    SortStrategy, \
+    typename    SplitStrategy  
+#endif
+
+#ifndef RTREE_NODE_ARG
+#define RTREE_NODE_ARG \
+  ObjectType, M, CoordType, Dim, SortStrategy
+#endif
+
+#ifndef RTREE_TREE_ARG
+#define RTREE_TREE_ARG \
+  ObjectType, M, CoordType, Dim, SortStrategy, SplitStrategy
+#endif
+
+
 /*********************************************************************
 * Forward declarations 
 *********************************************************************/
-template 
-<
-  typename    ObjectType,                  // Contained object
-  std::size_t M,                           // Max. element number 
-  typename    CoordType,                   // Coordinate type
-  std::size_t Dim,                         // Dimensions
-  typename    SortStrategy                 // Sorting strategy
->
+template<RTREE_NODE_DEF>
 class RTreeNodeND;
 
-template 
-<
-  typename    ObjectType,                  // Contained object
-  std::size_t M,                           // Max. element number 
-  typename    CoordType,                   // Coordinate type
-  std::size_t Dim,                         // Dimensions
-  typename    SortStrategy,                // Sorting strategy
-  typename    SplitStrategy                // Splitting strategy
->
+template<RTREE_TREE_DEF>
 class RTreeND;
-
-
 
 /*********************************************************************
 * This class defines a strategy for the sorting of RTree nodes
@@ -114,277 +135,11 @@ public:
 }; // NearestXSort
 
 
-/*********************************************************************
-* Quadratic split strategy
-*********************************************************************/
-class QuadraticSplit
-{
-public:
-  /*------------------------------------------------------------------ 
-  | This function is called upon the splitting of the entries of 
-  | a given "node" in two sets "n1" and "n2".
-  | The output array "add_to_n2" marks all entries of the input node, 
-  | wether they will be distributed to the set "n1" (false) or 
-  | to the set "n2" (true).
-  ------------------------------------------------------------------*/
-  template<
-    typename    ObjectType,                  // Contained object
-    std::size_t M,                           // Max. element number 
-    typename    CoordType,                   // Coordinate type
-    std::size_t Dim,                         // Dimensions
-    typename    SortStrategy                 // Sorting strategy
-  >
-  static inline
-  std::array<bool,M> 
-  split(const RTreeNodeND<ObjectType,M,CoordType,Dim,SortStrategy>& node)
-  {
-    std::array<bool,M> add_to_n2 { false };
-
-    // This array marks all distributed entries
-    std::array<bool,M> distributed { false };
-
-    // This variable referes to the remaining number of entries, which 
-    // have not yet been distributed
-    std::size_t n_remaining = node.n_entries();
-
-    // These are the bounding boxes that enclose all objects in the 
-    // two sets
-    BBoxND<CoordType,Dim> bbox_1 {};
-    BBoxND<CoordType,Dim> bbox_2 {};
-
-    // This function picks the first entry for each group
-    // The entry for n1 is added indirectly through its marker 
-    // in the array "distributed"
-    std::size_t seed = pick_seeds(node, distributed, n_remaining, 
-                                  bbox_1, bbox_2);
-    add_to_n2[seed]  = true;
-    ASSERT( n_remaining == node.n_entries()-2, 
-        "Error in function RTree::pick_seeds() failed.");
-
-    // These are the number of entries that are already distributed 
-    // to both sets "n1" and "n2" 
-    std::size_t n_n1 = 1;
-    std::size_t n_n2 = 1;
-
-    while ( true )
-    {
-      // Stop if all entries have been assigned
-      if ( n_remaining == 0 )
-        return add_to_n2;
-
-      // First node has so few entries, that all remaining entries must
-      // be assigned to it in order to have the minimum number
-      if ( n_n1 + n_remaining == M/2 )
-      {
-        ASSERT( n_n2 >= M/2, "Error in function RTree::quadratic_split");
-        return add_to_n2;
-      }
-
-      // Second node has so few entries, that all remaining entries must
-      // be assigned to it in order to have the minimum number
-      if ( n_n2 + n_remaining == M/2 )
-      {
-        for ( std::size_t i = 0; i < M; ++i )
-          add_to_n2[i] = (distributed[i] == false) ? true : add_to_n2[i];
-
-        ASSERT( n_n1 >= M/2, "Error in function RTree::quadratic_split");
-        return add_to_n2;
-      }
-
-      // Pick the next entry to assign. This function also 
-      // decrements "n_remaining" and handles the markation
-      // of entry "i" in the array "distributed"
-      std::size_t i = pick_next(node, distributed, n_remaining, 
-                                bbox_1, bbox_2);
-
-      // Add entry "i" to the group whose covering rectangle will
-      // have to be enlarged least to accomodate it.
-      const BBoxND<CoordType,Dim>& E_i = node.bbox(i);
-
-      const BBoxND<CoordType,Dim> cover_1 = bbox_1.bbox_cover(E_i);
-      const BBoxND<CoordType,Dim> cover_2 = bbox_2.bbox_cover(E_i);
-      
-      const CoordType d1 = cover_1.scale() - bbox_1.scale(); 
-      const CoordType d2 = cover_2.scale() - bbox_2.scale(); 
-
-      bool add_entry_to_n2 = false;
-
-      // Add entry to set "n2", if its covering rectangle will be 
-      // enlarged less than for set "n1"
-      if ( d2 < d1 )
-        add_entry_to_n2 = true;
-
-      // In case of ties 
-      if ( EQ(d1, d2) ) 
-      {
-        // Add entry to set with smaller size
-        if ( bbox_2.scale() < bbox_1.scale() )
-          add_entry_to_n2 = true;
-
-        // Then to the one with fewer entries
-        if ( EQ(bbox_1.scale(), bbox_2.scale()) && (n_n2 < n_n1) )
-          add_entry_to_n2 = true;
-      }
-
-      // Otherwise, add entry to set "n1"
-      if ( add_entry_to_n2 )
-      {
-        add_to_n2[i] = true;
-        bbox_2       = cover_2;
-        ++n_n2;
-      }
-      else
-      {
-        bbox_1 = cover_1;
-        ++n_n1;
-      }
-    }
-
-  } // QuadraticSplit::split()
-
-
-private:
-
-  /*------------------------------------------------------------------ 
-  | Select two entries of the given full "node" which are used as 
-  | seeds for the quadratic_split() algorithm during a node splitting
-  | operation.
-  ------------------------------------------------------------------*/
-  template<
-    typename    ObjectType,                  // Contained object
-    std::size_t M,                           // Max. element number 
-    typename    CoordType,                   // Coordinate type
-    std::size_t Dim,                         // Dimensions
-    typename    SortStrategy                 // Sorting strategy
-  >
-  static inline
-  std::size_t 
-  pick_seeds(const RTreeNodeND<ObjectType,M,CoordType,Dim,SortStrategy>& node, 
-             std::array<bool,M>&    distributed,
-             std::size_t&           n_remaining,
-             BBoxND<CoordType,Dim>& bbox_1,
-             BBoxND<CoordType,Dim>& bbox_2) 
-  {
-    ASSERT(node.n_entries() == M, "Invalid data structure passed to "
-        "function RTree::pick_seeds()");
-
-    std::size_t seed_1 = -1;
-    std::size_t seed_2 = -1;
-
-    CoordType ineff = CoordType{};
-
-    // Calculate inefficiency of grouping entries together
-    for (std::size_t i = 0; i < M; ++i)
-    {
-      const BBoxND<CoordType,Dim>& E_i = node.bbox(i);
-
-      for (std::size_t j = 0; j < M; ++j)
-      {
-        if ( i == j )
-          continue;
-
-        // Compose a rectangle J including E_i and E_j 
-        const BBoxND<CoordType,Dim>& E_j = node.bbox(j);
-
-        const BBoxND<CoordType,Dim> J = E_i.bbox_cover(E_j);
-
-        // Compute the inefficiency size
-        const CoordType diff = J.scale() - E_i.scale() - E_j.scale();
-
-        // Choose the most wasteful pair
-        if ( diff > ineff )
-        {
-          ineff  = diff;
-          seed_1 = i;
-          seed_2 = j;
-        }
-      }
-    }
-
-    ASSERT( seed_1 != seed_2, "Function RTree::pick_seeds() failed.");
-    
-    // Mark chosen elements
-    bbox_1 = node.bbox(seed_1);
-    distributed[seed_1] = true;
-    --n_remaining;
-
-    bbox_2 = node.bbox(seed_2);
-    distributed[seed_2] = true;
-    --n_remaining;
-
-    return seed_2;
-
-  } // QuadraticSplit::pick_seeds()
-
-  /*------------------------------------------------------------------ 
-  | 
-  ------------------------------------------------------------------*/
-  template<
-    typename    ObjectType,                  // Contained object
-    std::size_t M,                           // Max. element number 
-    typename    CoordType,                   // Coordinate type
-    std::size_t Dim,                         // Dimensions
-    typename    SortStrategy                 // Sorting strategy
-  >
-  static inline
-  std::size_t 
-  pick_next(const RTreeNodeND<ObjectType,M,CoordType,Dim,SortStrategy>& node, 
-            std::array<bool,M>&    distributed,
-            std::size_t&           n_remaining,
-            BBoxND<CoordType,Dim>& bbox_1,
-            BBoxND<CoordType,Dim>& bbox_2) 
-  {
-    std::size_t entry = 0;
-
-    CoordType max_diff = CoordType{};
-
-    // Determine the cost of putting each entry in each group
-    for (std::size_t i = 0; i < M; ++i)
-    {
-      if ( distributed[i] )
-        continue;
-
-      const BBoxND<CoordType,Dim>& E_i = node.bbox(i);
-
-      // Compute the size increases required in the covering rectangles
-      // "bbox_1" and "bbox_2" to include entry "i"
-      BBoxND<CoordType,Dim> C_1 = bbox_1.bbox_cover(E_i);
-      BBoxND<CoordType,Dim> C_2 = bbox_2.bbox_cover(E_i);
-
-      const CoordType d1 = C_1.scale() - bbox_1.scale();
-      const CoordType d2 = C_2.scale() - bbox_2.scale();
-
-      const CoordType diff = ABS(d1 - d2);
-
-      // Choose the entry with the maximum difference between d1 and d2
-      if ( diff > max_diff )
-      {
-        entry    = i;
-        max_diff = diff;
-      }
-    }
-
-    distributed[entry] = true;
-    --n_remaining;
-
-    return entry;
-
-  } // QuadraticSplit::pick_next()
-
-}; // QuadraticSplit
-
 
 /*********************************************************************
-* Entry to store the rtree data 
+* Entry to store the RTree data 
 *********************************************************************/
-template 
-<
-  typename    ObjectType,                  // Contained object
-  std::size_t M,                           // Max. element number 
-  typename    CoordType,                   // Coordinate type
-  std::size_t Dim,                         // Dimensions
-  typename    SortStrategy                 // Sorting strategy
->
+template<RTREE_NODE_DEF>
 class RTreeEntryND
 {
 public:
@@ -403,7 +158,6 @@ public:
   void bbox(const BBox& b) { bbox_ = b; }
   void child(Node_ptr& c) { child_ = std::move(c); }
   void object(const ObjectType* obj) { object_ = obj; }
-  void parent(Node* p) { parent_ = p; }
 
   /*------------------------------------------------------------------ 
   | Getter
@@ -417,11 +171,8 @@ public:
   Node& child() { return *child_; }
   const Node& child() const { return *child_; }
 
+  ObjectType* object() { return const_cast<ObjectType*>(object_); }
   const ObjectType* object() const { return object_; }
-
-  Node* parent() { return parent_; }
-  const Node* parent() const { return parent_; }
-
 
 private:
   /*------------------------------------------------------------------ 
@@ -430,9 +181,404 @@ private:
   BBox               bbox_   {};
   Node_ptr           child_  { nullptr };
   const ObjectType*  object_ { nullptr };
-  Node*              parent_ { nullptr };
 
 }; // RTreeEntryND
+
+
+
+/*********************************************************************
+* Quadratic split strategy
+*********************************************************************/
+class QuadraticSplit
+{
+public:
+
+  template<RTREE_NODE_DEF>
+  struct SplitData
+  {
+    using Entry      = RTreeEntryND<RTREE_NODE_ARG>;
+    using EntryArray = std::array<Entry,M>;
+    using BBox       = BBoxND<CoordType,Dim>;
+
+    SplitData(EntryArray& e) : entries { e } {}
+
+    EntryArray&        entries;
+
+    EntryArray         left  {};
+    EntryArray         right {};
+
+    BBox               bbox_left  {};
+    BBox               bbox_right {};
+
+    std::size_t        n_left  {};
+    std::size_t        n_right {};
+
+    std::array<bool,M> distributed { false };
+    std::size_t        n_remaining { M };
+
+    /*---------------------------------------------------------------- 
+    | Add entry to the left side
+    ----------------------------------------------------------------*/
+    void add_to_left(std::size_t i)
+    {
+      ASSERT(!distributed[i],
+      "QuadraticSplit::SplitData::add_to_left(): "
+      "Can not redistribute entry " + std::to_string(i) + ".");
+
+      ASSERT(n_remaining > 0,
+      "QuadraticSplit::SplitData::add_to_left(): "
+      "All entries are already distributed.");
+
+      ASSERT(n_left < M-1,
+      "QuadraticSplit::SplitData::add_to_left(): "
+      "Array of left entries already full.");
+
+      if ( n_left == 0 )
+        bbox_left = entries[i].bbox();
+      else
+        bbox_left = bbox_left.bbox_cover( entries[i].bbox() );
+
+      left[n_left] = std::move(entries[i]);
+      ++n_left;
+      distributed[i] = true;
+      --n_remaining;
+
+    } // add_to_left()
+
+    /*---------------------------------------------------------------- 
+    | Add entry to the right side
+    ----------------------------------------------------------------*/
+    void add_to_right(std::size_t i)
+    {
+      ASSERT(!distributed[i],
+      "QuadraticSplit::SplitData::add_to_right(): "
+      "Can not redistribute entry " + std::to_string(i) + ".");
+
+      ASSERT(n_remaining > 0,
+      "QuadraticSplit::SplitData::add_to_right(): "
+      "All entries are already distributed.");
+
+      ASSERT(n_right < M-1,
+      "QuadraticSplit::SplitData::add_to_right(): "
+      "Array of right entries already full.");
+
+      if ( n_right == 0 )
+        bbox_right = entries[i].bbox();
+      else
+        bbox_right = bbox_right.bbox_cover( entries[i].bbox() );
+
+      right[n_right] = std::move(entries[i]);
+      ++n_right;
+      distributed[i] = true;
+      --n_remaining;
+
+    } // add_to_right()
+
+
+    /*---------------------------------------------------------------- 
+    | Put all remaining entries to the right side, so that it has at
+    | least M/2 entries
+    ----------------------------------------------------------------*/
+    bool balance_left()
+    {
+      if ( n_right < M/2 )
+        return false;
+
+      if ( n_left + n_remaining != M/2 )
+        return false;
+
+      for (std::size_t i = 0; i < M; ++i)
+        if ( !distributed[i] )
+          add_to_left(i);
+
+      return true;
+    }
+     
+    /*---------------------------------------------------------------- 
+    | Put all remaining entries to the right side, so that it has at
+    | least M/2 entries
+    ----------------------------------------------------------------*/
+    bool balance_right()
+    {
+      if ( n_left < M/2 )
+        return false;
+
+      if ( n_right + n_remaining != M/2 )
+        return false;
+
+      for (std::size_t i = 0; i < M; ++i)
+        if ( !distributed[i] )
+          add_to_right(i);
+
+      return true;
+    }
+
+
+    /*---------------------------------------------------------------- 
+    | Compute the amount by which the covering rectangle of the 
+    | left group has to be enlarged if entry "i" would be added
+    ----------------------------------------------------------------*/
+    CoordType rect_diff_left(std::size_t i) const 
+    {
+      ASSERT(!distributed[i],
+      "QuadraticSplit::SplitData::rect_diff_left(): "
+      "Entry " + std::to_string(i) + " already distributed.");
+      const auto c_left = bbox_left.bbox_cover( entries[i].bbox() );
+      return c_left.scale() - bbox_left.scale();
+    }
+
+    /*---------------------------------------------------------------- 
+    | Compute the amount by which the covering rectangle of the 
+    | right group has to be enlarged if entry "i" would be added
+    ----------------------------------------------------------------*/
+    CoordType rect_diff_right(std::size_t i) const
+    {
+      ASSERT(!distributed[i],
+      "QuadraticSplit::SplitData::rect_diff_right(): "
+      "Entry " + std::to_string(i) + " already distributed.");
+      const auto c_right = bbox_right.bbox_cover( entries[i].bbox() );
+      return c_right.scale() - bbox_right.scale();
+    }
+
+  }; // SplitData
+
+  /*------------------------------------------------------------------ 
+  | Split a given array of RTree entries
+  ------------------------------------------------------------------*/
+  template<RTREE_NODE_DEF>
+  static inline std::unique_ptr<RTreeNodeND<RTREE_NODE_ARG>>
+  split(RTreeNodeND<RTREE_NODE_ARG>& node, std::size_t new_node_id)
+  {
+    ASSERT( node.n_entries() == M, 
+    "QuadraticSplit::split(): "
+    "Can not split node that is not full.");
+
+    SplitData<RTREE_NODE_ARG> split_data { node.entries() };
+
+    // Pick first entry for each group
+    pick_seeds( split_data );
+
+    while ( split_data.n_remaining > 0 )
+    {
+      if ( split_data.balance_left() )
+        break;
+
+      if ( split_data.balance_right() )
+        break;
+
+      pick_next(split_data);
+    }
+
+    ASSERT( split_data.n_remaining == 0,
+    "QuadraticSplit::split(): "
+    "Entries to split not fully distributed.");
+
+    ASSERT( split_data.n_left >= M/2,
+    "QuadraticSplit::split(): "
+    "Left group has only " + std::to_string(split_data.n_left) + 
+    " entries.");
+
+    ASSERT( split_data.n_right >= M/2,
+    "QuadraticSplit::split(): "
+    "Right group has only " + std::to_string(split_data.n_right) + 
+    " entries.");
+
+    return create_new_node( node, split_data, new_node_id );
+
+  } // QuadraticSplit::split()
+
+
+  /*------------------------------------------------------------------ 
+  | Create a new node
+  ------------------------------------------------------------------*/
+  template<RTREE_NODE_DEF>
+  static inline std::unique_ptr<RTreeNodeND<RTREE_NODE_ARG>>
+  create_new_node(RTreeNodeND<RTREE_NODE_ARG>& node,
+                  SplitData<RTREE_NODE_ARG>& split_data,
+                  std::size_t new_node_id)
+  {
+    auto new_node_ptr 
+      = std::make_unique<RTreeNodeND<RTREE_NODE_ARG>>(new_node_id);
+    auto& new_node = *new_node_ptr;
+
+    new_node.is_leaf( node.is_leaf() );
+    node.n_entries( 0 );
+
+    if ( node.is_leaf() )
+    {
+      for ( std::size_t i = 0; i < split_data.n_left; ++i )
+      {
+        auto& e = split_data.left[i];
+        node.add_object( *e.object(), e.bbox() );
+      }
+
+      for ( std::size_t i = 0; i < split_data.n_right; ++i )
+      {
+        auto& e = split_data.right[i];
+        new_node.add_object( *e.object(), e.bbox() );
+      }
+    }
+    else
+    {
+      for ( std::size_t i = 0; i < split_data.n_left; ++i )
+      {
+        auto& e = split_data.left[i];
+        node.add_child( e.child_ptr() );
+      }
+
+      for ( std::size_t i = 0; i < split_data.n_right; ++i )
+      {
+        auto& e = split_data.right[i];
+        new_node.add_child( e.child_ptr() );
+      }
+    }
+
+    return std::move(new_node_ptr);
+
+  } // create_new_node()
+
+  /*------------------------------------------------------------------ 
+  | Compute inefficiency between two bounding boxes
+  ------------------------------------------------------------------*/
+  template<typename CoordType, std::size_t Dim>
+  static inline CoordType 
+  inefficiency(const BBoxND<CoordType,Dim>& b1,
+               const BBoxND<CoordType,Dim>& b2)
+  { return b1.bbox_cover(b2).scale() - b1.scale() - b2.scale(); } 
+
+
+  /*------------------------------------------------------------------ 
+  | Pick the two seeds from a given array of rtree entries that 
+  | should be split. 
+  ------------------------------------------------------------------*/
+  template<RTREE_NODE_DEF>
+  static inline void pick_seeds(SplitData<RTREE_NODE_ARG>& split_data)
+  {
+    std::size_t seed_left  = 0;
+    std::size_t seed_right = 0;
+
+    CoordType ineff_0 = CoordType{};
+
+    // Calculate inefficiency of grouping entries together
+    for (std::size_t i = 0; i < M; ++i)
+    {
+      const BBoxND<CoordType,Dim>& b_i = split_data.entries[i].bbox();
+
+      for (std::size_t j = 0; j < M; ++j)
+      {
+        if ( i == j )
+          continue;
+
+        const BBoxND<CoordType,Dim>& b_j = split_data.entries[j].bbox();
+
+        const CoordType ineff = inefficiency(b_i, b_j);
+
+        // Choose the most wasteful pair
+        if ( ineff > ineff_0 )
+        {
+          ineff_0    = ineff;
+          seed_left  = i;
+          seed_right = j;
+        }
+      }
+    }
+
+    ASSERT( seed_left != seed_right, 
+    "QuadraticSplit::pick_seeds(): Invalid seeds for splitting.");
+
+    // Distribute entries to split_data
+    split_data.add_to_left( seed_left );
+    split_data.add_to_right( seed_right );
+
+  } // pick_seeds()
+
+  /*------------------------------------------------------------------ 
+  | Pick the next entries from a given array of rtree entries that 
+  | should be split. 
+  ------------------------------------------------------------------*/
+  template<RTREE_NODE_DEF>
+  static inline void pick_next(SplitData<RTREE_NODE_ARG>& split_data)
+  {
+    std::size_t i_picked = M;
+    CoordType   max_diff = CoordType{};
+
+    // Determine the cost of putting each entry in each group
+    for (std::size_t i = 0; i < M; ++i)
+    {
+      if ( split_data.distributed[i] )
+        continue;
+
+      // Compute the size increases required in the covering rectangles
+      // of the left and right group to include entry "i"
+      const CoordType d_left  = split_data.rect_diff_left(i);
+      const CoordType d_right = split_data.rect_diff_right(i);
+      const CoordType diff    = ABS(d_left - d_right);
+
+      // Choose the entry with the maximum difference 
+      if ( diff >= max_diff )
+      {
+        i_picked = i;
+        max_diff = diff;
+      }
+    }
+
+    ASSERT( i_picked < M,
+    "QuadraticSplit::SplitData::pick_next(): "
+    "Did not find valid entry. "
+    "Number of remaining entries: " 
+    + std::to_string(split_data.n_remaining));
+
+    ASSERT( !split_data.distributed[i_picked],
+    "QuadraticSplit::SplitData::pick_next(): "
+    "Entry " + std::to_string(i_picked) + " already distributed. ");
+
+    // Add the picked entry to the group whose covering rectangle will
+    // have to be enlarged least to accomodate it.
+    const CoordType d_left  = split_data.rect_diff_left(i_picked);
+    const CoordType d_right = split_data.rect_diff_right(i_picked);
+    const CoordType diff    = d_left - d_right;
+    bool tie                = EQ0(diff);
+
+    if ( !tie && d_left < d_right )
+    {
+      split_data.add_to_left( i_picked );
+      return;
+    }
+
+    if ( !tie && d_left > d_right )
+    {
+      split_data.add_to_right( i_picked );
+      return;
+    }
+
+    // Tie: Add entry to set with smaller size
+    if ( split_data.bbox_left.scale() < split_data.bbox_right.scale() )
+    {
+      split_data.add_to_left( i_picked );
+      return;
+    }
+
+    if ( split_data.bbox_left.scale() > split_data.bbox_right.scale() )
+    {
+      split_data.add_to_right( i_picked );
+      return;
+    }
+
+    // Further tie: Add entry to set with less entries
+    if ( split_data.n_left < split_data.n_right )
+    {
+      split_data.add_to_left( i_picked );
+      return;
+    }
+
+    split_data.add_to_right( i_picked );
+
+
+  } // pick_next()
+
+
+}; // QuadraticSplit
+
 
 
 /*********************************************************************
@@ -467,9 +613,9 @@ class RTreeNodeND
 {
 public:
   using BBox     = BBoxND<CoordType,Dim>;
-  using Node     = RTreeNodeND<ObjectType,M,CoordType,Dim,SortStrategy>;
+  using Node     = RTreeNodeND<RTREE_NODE_ARG>;
   using Node_ptr = std::unique_ptr<Node>;
-  using Entry    = RTreeEntryND<ObjectType,M,CoordType,Dim,SortStrategy>;
+  using Entry    = RTreeEntryND<RTREE_NODE_ARG>;
   using Entries  = std::array<Entry,M>;
 
   /*------------------------------------------------------------------ 
@@ -869,9 +1015,9 @@ class RTreeND
 public:
 
   using BBox       = BBoxND<CoordType,Dim>;
-  using Node       = RTreeNodeND<ObjectType,M,CoordType,Dim,SortStrategy>;
+  using Node       = RTreeNodeND<RTREE_NODE_ARG>;
   using NodeVector = std::vector<std::unique_ptr<Node>>;
-  using Entry      = RTreeEntryND<ObjectType,M,CoordType,Dim,SortStrategy>;
+  using Entry      = RTreeEntryND<RTREE_NODE_ARG>;
   using Entries    = std::array<Entry,M>;
 
   /*------------------------------------------------------------------ 
@@ -1155,8 +1301,6 @@ public:
 
   } // RTreeND::find_object_to_remove()
 
-
-
   /*------------------------------------------------------------------ 
   | Insert a new object into the RTree structure
   ------------------------------------------------------------------*/
@@ -1236,72 +1380,21 @@ private:
   void split_child(Node& parent_node, std::size_t i)
   {
     // Check that parent node is not full
-    ASSERT(parent_node.n_entries() != M, "Invalid R-Tree structure.");
-
-    // Check for valid child pointers
-#ifndef NDEBUG
-    for (std::size_t j = 0; j <= i; ++j)
-      ASSERT(&parent_node.child(j) != nullptr,
-          "Invalid child pointer at position " + std::to_string(j));
-#endif
+    ASSERT(parent_node.n_entries() != M, 
+    "RTreeND::split_child(): "
+    "Can not split child of full RTree node.");
 
     // This is the child node, whose entries will be splitted 
     Node& child_node = parent_node.child(i);
 
     // Check that child node is full
-    ASSERT(child_node.n_entries() == M, "Invalid R-Tree structure.");
+    ASSERT(child_node.n_entries() == M, 
+    "RTreeND::split_child(): "
+    "Can not split non-full RTree child node.");
 
     // This is the new node, which will get half of the entries 
     // of "child_node"
-    auto new_node_ptr = std::make_unique<Node>(node_id_++);
-    Node& new_node = *new_node_ptr;
-
-    new_node.is_leaf( child_node.is_leaf() );
-
-    ASSERT( new_node.index() < M, "Invalid R-Tree structure.");
-
-    // This array contains the information, which entries of the 
-    // child node "child_node" will be added to "new_node"
-    std::array<bool,M> add_to_new = SplitStrategy::split( child_node );
-
-    // Move all remaining child entries into vector
-    std::vector<Entry> entries_child {};
-    std::vector<Entry> entries_new {};
-
-    for ( std::size_t j = 0; j < M; ++j )
-    {
-      if ( add_to_new[j] )
-        entries_new.push_back( std::move( child_node.entry(j) ) );
-      else
-        entries_child.push_back( std::move( child_node.entry(j) ) );
-    }
-
-    ASSERT( entries_new.size() >= M/2, 
-        "RTreeND: Invalid number of entries: " 
-        + std::to_string(entries_new.size()) );
-    ASSERT( entries_child.size() >= M/2, 
-        "RTreeND: Invalid number of entries: " 
-        + std::to_string(entries_child.size()) );
-
-    new_node.n_entries( 0 );
-    child_node.n_entries( 0 );
-
-    if ( child_node.is_leaf() )
-    {
-      for ( Entry& e : entries_new )
-        new_node.add_object( *e.object(), e.bbox() );
-
-      for ( Entry& e : entries_child )
-        child_node.add_object( *e.object(), e.bbox() );
-    }
-    else
-    {
-      for ( Entry& e : entries_new )
-        new_node.add_child( e.child_ptr() );
-
-      for ( Entry& e : entries_child )
-        child_node.add_child( e.child_ptr() );
-    }
+    auto new_node_ptr = SplitStrategy::split( child_node, node_id_++ );
 
     // Add "new_node" and its bounding boxx to "parent_node"
     parent_node.add_child( new_node_ptr );
@@ -1318,19 +1411,6 @@ private:
 
       parent_node.bbox( j, cover );
     }
-
-    // Check some stuff
-    ASSERT( child_node.right() == &new_node, 
-        "Invalid child split (1). child_node id: " 
-        + std::to_string(child_node.index()) 
-        + " new_node id: " + std::to_string(new_node.index())
-        + " is_leaf: " + std::to_string(new_node.is_leaf()));
-
-    ASSERT( new_node.left() == &child_node, 
-        "Invalid child split (2). child_node id: " 
-        + std::to_string(child_node.index()) 
-        + " new_node id: " + std::to_string(new_node.index())
-        + " is_leaf: " + std::to_string(new_node.is_leaf()));
 
   } // RTreeND::split_child()
 
@@ -1410,6 +1490,10 @@ private:
     if ( node.child(j).n_entries() == M )
     {
       split_child(node, j);
+
+      if ( node.parent() )
+        return choose_leaf_insertion( *node.parent(), object_bbox );
+
       return choose_leaf_insertion( node, object_bbox );
     }
 
@@ -1560,8 +1644,8 @@ class RTreeNDWriter
 
 public:
 
-  using Node  = RTreeNodeND<ObjectType,M,CoordType,Dim,SortStrategy>;
-  using RTree = RTreeND<ObjectType,M,CoordType,Dim,SortStrategy,SplitStrategy>;
+  using Node  = RTreeNodeND<RTREE_NODE_ARG>;
+  using RTree = RTreeND<RTREE_TREE_ARG>;
 
   /*------------------------------------------------------------------ 
   | Constructor
