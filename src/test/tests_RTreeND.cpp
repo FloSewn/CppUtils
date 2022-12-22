@@ -25,6 +25,22 @@ namespace RTreeNDTests
 using namespace CppUtils;
 
 /*--------------------------------------------------------------------
+| Test sorting strategies
+--------------------------------------------------------------------*/
+void nearest_x_sort()
+{
+  std::vector<BBoxND<int,2>> bboxes {};
+
+  bboxes.push_back( { {0,0}, {1,1} } );
+  bboxes.push_back( { {5,4}, {7,7} } );
+  bboxes.push_back( { {-3,-3}, {-1,-1} } );
+
+  auto sort_ids = NearestXSort::sort( bboxes );
+
+} // nearest_x_sort()
+
+
+/*--------------------------------------------------------------------
 | Test constructor
 --------------------------------------------------------------------*/
 void constructor()
@@ -105,21 +121,21 @@ void constructor()
   tree.remove(values[5], bboxes[5]);
   tree.remove(values[6], bboxes[6]);
 
-} // constructor()
+} // constructor() 
 
 /*--------------------------------------------------------------------
 | Test 1D tree
 --------------------------------------------------------------------*/
 void insertion_1d()
 {
-  RTreeND<int,3,int,1> tree {};
+  RTreeND<int,5,int,1> tree {};
   RTreeNDWriter writer { tree };
 
   std::vector<int> values;
   std::vector<BBoxND<int,1>> bboxes;
 
-  int k = 13;
-  int n = 13;
+  int k = 104;
+  int n = 104;
 
   for ( std::size_t i = 0; i < k; ++i )
     values.push_back( i );
@@ -166,17 +182,28 @@ void insertion_1d()
   }
 
 
-  //int s1 = std::accumulate(tree.cbegin(), tree.cend(), 0);
-  //int s2 = std::accumulate(values.cbegin(), values.cend(), 0);
+  int s1 = std::accumulate(tree.cbegin(), tree.cend(), 0);
+  int s2 = std::accumulate(values.cbegin(), values.cend(), 0);
+  CHECK( s1 == s2 );
 
-  //CHECK( s1 == s2 );
+  // Remove most entries
+  for (int r = 1; r < k-1; ++r)
+  {
+    CHECK( tree.remove(values[k-r], bboxes[k-r]) );
 
+    i = 0;
+    for ( const auto& it : tree )
+      CHECK( &it == &(values[i++]) );
+  }
 
-} // insertion_1d()
+  std::cout << "-----------------------------------\n\n\n";
+  writer.print(std::cout);
+
+} // insertion_1d() 
 
 /*--------------------------------------------------------------------
 | Test bulk insertion of many objects
---------------------------------------------------------------------*/
+--------------------------------------------------------------------*
 void bulk_insertion_2d()
 {
   RTreeND<int,3,double,2> tree {};
@@ -238,11 +265,11 @@ void bulk_insertion_2d()
   CHECK( c_2.left() == &c_1 );
 
 
-} // bulk_insertion_2d()
+} // bulk_insertion_2d() */
 
 /*--------------------------------------------------------------------
 | Test bulk insertion of many objects
---------------------------------------------------------------------*/
+--------------------------------------------------------------------*
 void bulk_insertion_3d()
 {
   RTreeND<int, 3, double, 3> tree {};
@@ -282,7 +309,7 @@ void bulk_insertion_3d()
   writer.write_to_txt( file_name );
   writer.print(std::cout);
 
-} // bulk_insertion_3d()
+} // bulk_insertion_3d() */
 
 } // namespace RTreeNDTests
 
@@ -292,18 +319,14 @@ void bulk_insertion_3d()
 *********************************************************************/
 void run_tests_RTreeND()
 {
+  RTreeNDTests::nearest_x_sort();
+
   RTreeNDTests::constructor();
-
   std::cout << "-----------------------------------------" << std::endl;
-
   RTreeNDTests::insertion_1d();
-
   std::cout << "-----------------------------------------" << std::endl;
-
-  RTreeNDTests::bulk_insertion_2d();
-
-  std::cout << "-----------------------------------------" << std::endl;
-
-  RTreeNDTests::bulk_insertion_3d();
+  //RTreeNDTests::bulk_insertion_2d();
+  //std::cout << "-----------------------------------------" << std::endl;
+  //RTreeNDTests::bulk_insertion_3d();
 
 } // run_tests_RTreeND()

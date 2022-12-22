@@ -51,6 +51,11 @@ int run_benchmarks(const std::string& library)
     LOG(INFO) << "  Running benchmarks for \"QuadTree\" library...";
     run_benchmarks_QuadTree();
   }
+  else if ( !library.compare("RTreeND") )
+  {
+    LOG(INFO) << "  Running benchmarks for \"RTreeND\" library...";
+    run_benchmarks_RTreeND();
+  }
   else
   {
     LOG(INFO) << "";

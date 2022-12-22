@@ -20,4 +20,5 @@ int run_benchmarks(const std::string& library);
 *********************************************************************/
 void run_benchmarks_QuadTree();
 void run_benchmarks_Container();
+void run_benchmarks_RTreeND();
 

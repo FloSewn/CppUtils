@@ -50,7 +50,6 @@ private:
   double a_  { 0.0 };
   double b_  { 0.0 };
   double c_  { 0.0 };
-
 }; 
 
 
