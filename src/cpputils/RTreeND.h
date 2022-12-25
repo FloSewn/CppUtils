@@ -455,7 +455,7 @@ public:
   static inline void pick_seeds(SplitData<RTREE_NODE_ARG>& split_data)
   {
     std::size_t seed_left  = 0;
-    std::size_t seed_right = 0;
+    std::size_t seed_right = 1;
 
     CoordType ineff_0 = CoordType{};
 
@@ -735,16 +735,18 @@ public:
   const Entry& entry(std::size_t i) const
   {
     ASSERT( i < n_entries(), 
-        "RTreeNodeND: Unable to access entry at position " 
-        + std::to_string(i) );
+    "RTreeNodeND::entry(): "
+    "Unable to access entry[" + std::to_string(i) + "].");
+
     return entries_[i]; 
   }
 
   Entry& entry(std::size_t i)
   {
     ASSERT( i < n_entries(), 
-        "RTreeNodeND: Unable to access entry at position " 
-        + std::to_string(i) );
+    "RTreeNodeND::entry(): "
+    "Unable to access entry[" + std::to_string(i) + "].");
+
     return entries_[i]; 
   }
 
@@ -754,8 +756,9 @@ public:
   const BBox& bbox(std::size_t i) const
   { 
     ASSERT( i < n_entries(), 
-        "RTreeNodeND: Unable to access key at position " 
-        + std::to_string(i) );
+    "RTreeNodeND::bbox(): "
+    "Unable to access bbox[" + std::to_string(i) + "].");
+
     return entries_[i].bbox(); 
   }
 
@@ -764,17 +767,27 @@ public:
   ------------------------------------------------------------------*/
   ObjectType& object(std::size_t i) 
   { 
-    ASSERT( i < n_entries() && is_leaf(), 
-        "RTreeNodeND: Unable to access key at position " 
-        + std::to_string(i) );
+    ASSERT( is_leaf(),
+    "RTreeNodeND::object(): "
+    "Unable to access object of non-leaf node.");
+
+    ASSERT( i < n_entries(), 
+    "RTreeNodeND::object(): " 
+    "Unable to access object[" + std::to_string(i) + "].");
+
     return *(const_cast<ObjectType*>(entries_[i].object())); 
   }
 
   const ObjectType& object(std::size_t i) const 
   { 
-    ASSERT( i < n_entries() && is_leaf(), 
-        "RTreeNodeND: Unable to access key at position " 
-        + std::to_string(i) );
+    ASSERT( is_leaf(),
+    "RTreeNodeND::object(): "
+    "Unable to access object of non-leaf node.");
+
+    ASSERT( i < n_entries(), 
+    "RTreeNodeND::object(): " 
+    "Unable to access object[" + std::to_string(i) + "].");
+
     return *(entries_[i].object());
   }
 
@@ -783,17 +796,27 @@ public:
   ------------------------------------------------------------------*/
   Node_ptr& child_ptr(std::size_t i) 
   { 
-    ASSERT( i < n_entries() && !is_leaf(), 
-        "RTreeNodeND: Unable to access child at position " 
-        + std::to_string(i) );
+    ASSERT( !is_leaf(),
+    "RTreeNodeND::child_ptr(): "
+    "Unable to access child of leaf node.");
+
+    ASSERT( i < n_entries(), 
+    "RTreeNodeND::child_ptr(): " 
+    "Unable to access child[" + std::to_string(i) + "].");
+
     return entries_[i].child_ptr();
   }
 
   const Node_ptr& child_ptr(std::size_t i) const
   { 
-    ASSERT( i < n_entries() && !is_leaf(), 
-        "RTreeNodeND: Unable to access child at position " 
-        + std::to_string(i) );
+    ASSERT( !is_leaf(),
+    "RTreeNodeND::child_ptr(): "
+    "Unable to access child of leaf node.");
+
+    ASSERT( i < n_entries(), 
+    "RTreeNodeND::child_ptr(): " 
+    "Unable to access child[" + std::to_string(i) + "].");
+
     return entries_[i].child_ptr(); 
   }
 
@@ -802,17 +825,27 @@ public:
   ------------------------------------------------------------------*/
   Node& child(std::size_t i) 
   { 
-    ASSERT( i < n_entries() && !is_leaf(), 
-        "RTreeNodeND: Unable to access child at position " 
-        + std::to_string(i) );
+    ASSERT( !is_leaf(),
+    "RTreeNodeND::child(): "
+    "Unable to access child of leaf node.");
+
+    ASSERT( i < n_entries(), 
+    "RTreeNodeND::child(): " 
+    "Unable to access child[" + std::to_string(i) + "].");
+
     return entries_[i].child();
   }
 
   const Node& child(std::size_t i) const 
   { 
-    ASSERT( i < n_entries() && !is_leaf(), 
-        "RTreeNodeND: Unable to access child at position " 
-        + std::to_string(i) );
+    ASSERT( !is_leaf(),
+    "RTreeNodeND::child(): "
+    "Unable to access child of leaf node.");
+
+    ASSERT( i < n_entries(), 
+    "RTreeNodeND::child(): " 
+    "Unable to access child[" + std::to_string(i) + "].");
+
     return entries_[i].child();
   }
 
@@ -822,8 +855,9 @@ public:
   void bbox(std::size_t i, const BBox& b) 
   { 
     ASSERT( i < n_entries(), 
-        "RTreeNodeND: Unable to access key at position " 
-        + std::to_string(i) );
+    "RTreeNodeND::bbox(): "
+    "Unable to set bbox[" + std::to_string(i) + "]." );
+
     entries_[i].bbox(b);
   }
 
@@ -832,9 +866,14 @@ public:
   ------------------------------------------------------------------*/
   void object(std::size_t i, const ObjectType& obj)
   { 
-    ASSERT( i < n_entries() && is_leaf(), 
-        "RTreeNodeND: Unable to set object at position " 
-        + std::to_string(i) );
+    ASSERT( is_leaf(),
+    "RTreeNodeND::object(): "
+    "Unable to set object of non-leaf node.");
+
+    ASSERT( i < n_entries(), 
+    "RTreeNodeND::object(): " 
+    "Unable to set object[" + std::to_string(i) + "].");
+
     entries_[i].object(&obj);
   }
 
@@ -843,9 +882,14 @@ public:
   ------------------------------------------------------------------*/
   void child(std::size_t i, std::unique_ptr<Node>& c)
   { 
-    ASSERT( i < n_entries() && !is_leaf(), 
-        "RTreeNodeND: Unable to set child at position " 
-        + std::to_string(i) );
+    ASSERT( !is_leaf(),
+    "RTreeNodeND::child(): "
+    "Unable to set child of leaf node.");
+
+    ASSERT( i < n_entries(), 
+    "RTreeNodeND::child(): " 
+    "Unable to set child[" + std::to_string(i) + "].");
+
     entries_[i].child(c);
   }
 
@@ -856,10 +900,13 @@ public:
   {
     const std::size_t n_entries = this->n_entries();
 
-    ASSERT( n_entries < M, "RTreeNodeND: Can not add more than " 
-        + std::to_string(M) + " objects.");
-    ASSERT( is_leaf(), "RTreeNodeND: Can not add object to "
-        "non-leaf node.");
+    ASSERT( n_entries < M, 
+    "RTreeNodeND::add_object(): "
+    "Can not add more than " + std::to_string(M) + " objects.");
+
+    ASSERT( is_leaf(), 
+    "RTreeNodeND:add_object(): "
+    "Can not add object to non-leaf node.");
 
     std::size_t i = n_entries;
 
@@ -895,10 +942,13 @@ public:
     Node& child = *child_ptr;
     const std::size_t n_entries = this->n_entries();
 
-    ASSERT( n_entries < M, "RTreeNodeND: Can not add more than " 
-        + std::to_string(M) + " children.");
-    ASSERT( !is_leaf(), "RTreeNodeND: Can not add child to "
-        "non-leaf node.");
+    ASSERT( n_entries < M, 
+    "RTreeNodeND::add_child(): "
+    "Can not add more than " + std::to_string(M) + " children.");
+
+    ASSERT( !is_leaf(), 
+    "RTreeNodeND:add_child(): "
+    "Can not add child to leaf node.");
 
     std::size_t i = n_entries;
 
@@ -936,9 +986,13 @@ public:
   {
     const std::size_t n_entries = this->n_entries();
 
-    ASSERT( n_entries > 0, "RTreeNodeND: Invalid object removal." );
-    ASSERT( is_leaf(), "RTreeNodeND: Can not remove object from "
-        "non-leaf node.");
+    ASSERT( n_entries > 0, 
+    "RTreeNodeND::remove_object(): "
+    "Can not remove object from empty node.");
+
+    ASSERT( is_leaf(), 
+    "RTreeNodeND::remove_object(): "
+    "Can not remove object from non-leaf node.");
 
     // Shift remaining entries to the left
     for (std::size_t j = index; j < n_entries-1; ++j)
@@ -958,9 +1012,13 @@ public:
   {
     const std::size_t n_entries = this->n_entries();
      
-    ASSERT( n_entries > 0, "RTreeNodeND: Invalid child node removal." );
-    ASSERT( !is_leaf(), "RTreeNodeND: Can not remove child from "
-        "leaf node.");
+    ASSERT( n_entries > 0, 
+    "RTreeNodeND::remove_child(): "
+    "Can not remove child from empty node.");
+
+    ASSERT( !is_leaf(), 
+    "RTreeNodeND::remove_child(): "
+    "Can not remove child from leaf node.");
 
     // Shift remaining entries to the left
     for (std::size_t j = index; j < n_entries-1; ++j)
@@ -1448,7 +1506,7 @@ private:
   /*------------------------------------------------------------------ 
   | Choose appropriate leaf node for RTree-insertion
   ------------------------------------------------------------------*/
-  Node& choose_leaf_insertion(Node&       node,
+  Node& choose_leaf_insertion(Node& node,
                               const BBox& object_bbox)
   {
     // Choos only leaf nodes
@@ -1456,6 +1514,7 @@ private:
       return node;
 
     CoordType max_enlarge = std::numeric_limits<CoordType>::max();
+
     std::size_t j = 0;
 
     CoordType cover_j = node.bbox(j).bbox_cover(object_bbox).scale();
@@ -1490,9 +1549,6 @@ private:
     if ( node.child(j).n_entries() == M )
     {
       split_child(node, j);
-
-      if ( node.parent() )
-        return choose_leaf_insertion( *node.parent(), object_bbox );
 
       return choose_leaf_insertion( node, object_bbox );
     }
@@ -1547,10 +1603,12 @@ private:
 
     (*new_root).is_leaf(false);
     (*new_root).add_child( root_ );
+
     root_ = std::move(new_root);
 
-    ASSERT( (*root_).n_entries() == 1, "Invalid root node.");
-    //root_->child(0).parent(*root_);   // maybe needed?
+    ASSERT( (*root_).n_entries() == 1, 
+    "RTReeND::add_root_node(): "
+    "Generation of new root node failed.");
 
   } // RTreeND::add_root_node()
 
