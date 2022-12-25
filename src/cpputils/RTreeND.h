@@ -1433,11 +1433,32 @@ public:
 private:
 
   /*------------------------------------------------------------------ 
+  | This function splits a given node. If the parent of this given
+  | node is full, it alos invokes the split on the parent node.
+  | Thus, it can only be called upon nodes that have parent nodes.
+  ------------------------------------------------------------------*/
+  void split_node(Node& node)
+  {
+    ASSERT( node.n_entries() == M, 
+    "RTreeND::split_node(): "
+    "Can not split non-full RTree child node.");
+
+    ASSERT( node.parent(),
+    "RTreeND::split_node(): "
+    "Can not call function on node without parent.");
+
+    if ( (*node.parent()).n_entries() == M )
+      split_node( *node.parent() );
+
+    split_child( *node.parent(), node.index() );
+
+  } // split_node()
+
+  /*------------------------------------------------------------------ 
   | This function splits the i-th child of a given "parent_node"
   ------------------------------------------------------------------*/
   void split_child(Node& parent_node, std::size_t i)
   {
-    // Check that parent node is not full
     ASSERT(parent_node.n_entries() != M, 
     "RTreeND::split_child(): "
     "Can not split child of full RTree node.");
@@ -1445,7 +1466,6 @@ private:
     // This is the child node, whose entries will be splitted 
     Node& child_node = parent_node.child(i);
 
-    // Check that child node is full
     ASSERT(child_node.n_entries() == M, 
     "RTreeND::split_child(): "
     "Can not split non-full RTree child node.");
@@ -1482,24 +1502,15 @@ private:
     // Choose an appropriate leaf to insert the object
     Node& leaf = choose_leaf_insertion(node, obj_bbox);
 
-    // If the leaf has enough space to store the object, add it
-    if ( leaf.n_entries() < M )
-    {
-      leaf.add_object( object, obj_bbox );
+    ASSERT( leaf.n_entries() < M,
+    "RTreeND::insert_nonfull(): "
+    "Can not insert object in full leaf node.");
 
-      // Update all BBoxes in the path from root to this leaf, 
-      // so that all of them cover the object's bbox
-      update_parent_bbox(leaf);
-    }
-    // Otherwise, split the leaf in two nodes. This might lead its 
-    // parent to overflow, thus leading it to be splitted recursively.
-    // If the root node must be splitted, a new root node will be 
-    // created, which then keeps the splitted "old" root node 
-    // as children.
-    else
-    {
-      ASSERT( false, "IMPLEMENTATION ERROR");
-    } 
+    leaf.add_object( object, obj_bbox );
+
+    // Update all BBoxes in the path from root to this leaf, 
+    // so that all of them cover the object's bbox
+    update_parent_bbox(leaf);
 
   } // RTreeND::insert_nonfull()
 
@@ -1548,7 +1559,8 @@ private:
     // nodes & and run search for leaf in this layer again
     if ( node.child(j).n_entries() == M )
     {
-      split_child(node, j);
+      split_node( node.child(j) );
+      //split_child(node, j);
 
       return choose_leaf_insertion( node, object_bbox );
     }
