@@ -95,7 +95,7 @@ using Vertex2d = VertexType<double,2>;
 * The actual benchmark  
 *********************************************************************/
 template<std::size_t TREE_M>
-void benchmark(std::size_t n_samples)
+void benchmark(std::size_t n_samples, bool bulk_insertion=false)
 {
   /*------------------------------------------------------------------
   | Initialize 
@@ -104,7 +104,7 @@ void benchmark(std::size_t n_samples)
   std::vector<Vertex2d> vertices;
   Timer timer {};
   SpiralFunction fun( 2.5, -3.4, 6.5);
-  //RTreeND<Vertex2d,TREE_M,double,2> tree {};
+  RTreeND<Vertex2d,TREE_M,double,2> tree {};
 
   constexpr double t0 =  0.0;
   constexpr double t1 =  5.0 * M_PI;
@@ -136,10 +136,37 @@ void benchmark(std::size_t n_samples)
   /*------------------------------------------------------------------
   | Insert tree data
   ------------------------------------------------------------------*/
-  timer.count("RTreeND initialization");
+  timer.count("RTreeND object insertion");
 
-  //for (const auto& v : vertices)
-  //  tree.insert( v, v.bbox() );
+  if ( bulk_insertion )
+  {
+    std::vector<BBoxND<double,2>> v_bboxes {};
+
+    for (const auto& v : vertices)
+      v_bboxes.push_back( v.bbox() );
+
+    tree.insert( vertices, v_bboxes );
+  }
+  else
+  {
+    for (const auto& v : vertices)
+      tree.insert( v, v.bbox() );
+  }
+
+  /*------------------------------------------------------------------
+  | Remove random tree data
+  ------------------------------------------------------------------*/
+  timer.count("RTreeND object removal");
+
+  std::vector<size_t> removal_ids( n_samples / 2 );
+  std::iota(removal_ids.begin(), removal_ids.end(), 0);
+  std::shuffle(removal_ids.begin(), removal_ids.end(), rng);
+
+  for (int i = 0; i < removal_ids.size(); ++i)
+  {
+    const auto& v = vertices[removal_ids[i]];
+    tree.remove(v, v.bbox() );
+  }
 
   /*------------------------------------------------------------------
   | Finalize benchmark - output times to user
@@ -151,7 +178,10 @@ void benchmark(std::size_t n_samples)
   LOG(INFO) << "n_samples: " << n_samples;
 
   LOG(INFO) << timer.message(1)  << ": " 
-            << timer.delta(0) << "s";
+            << timer.delta(1) << "s";
+  
+  LOG(INFO) << timer.message(2)  << ": " 
+            << timer.delta(2) << "s";
 
   /*------------------------------------------------------------------
   | 
@@ -183,8 +213,8 @@ void benchmark(std::size_t n_samples)
 *********************************************************************/
 void run_benchmarks_RTreeND()
 {
-  std::size_t n_samples = 100000;
+  std::size_t n_samples = 10000;
 
-  RTreeNDBenchmarks::benchmark<100>(n_samples);
+  RTreeNDBenchmarks::benchmark<64>(n_samples, false);
   
 } // run_benchmarks_RTreeND()

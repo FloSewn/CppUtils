@@ -691,13 +691,33 @@ public:
   /*------------------------------------------------------------------ 
   | Setter
   ------------------------------------------------------------------*/
-  void parent(Node& p) { parent_ = &p; }
-  void parent(const Node& p) { parent_ = const_cast<Node*>(&p); }
-
+  void parent(Node* p) { parent_ = p; }
   void is_leaf(bool t) { is_leaf_ = t; }
   void n_entries(std::size_t n) { n_entries_ = n; }
   void id(std::size_t i) { id_ = i; }
   void index(std::size_t index) { index_ = index; }
+
+  /*------------------------------------------------------------------ 
+  | Collect all entries of this node or all its following child nodes
+  ------------------------------------------------------------------*/
+  void collect_entries(std::vector<const ObjectType*>& objects,
+                       std::vector<BBox>& bboxes) const
+  {
+    if ( !is_leaf() )
+    {
+      for (std::size_t i = 0; i < n_entries(); ++i )
+        child(i).collect_entries(objects, bboxes);
+    }
+    else
+    {
+      for (std::size_t i = 0; i < n_entries(); ++i )
+      {
+        objects.push_back( &object(i) );
+        bboxes.push_back( bbox(i) );
+      }
+    }
+
+  } // collect_entries()
 
   /*------------------------------------------------------------------ 
   | Function used to estimate the tree height
@@ -974,7 +994,7 @@ public:
     // Finally add the new child
     this->bbox(i, child.bbox()); 
     this->child(i, child_ptr);
-    child.parent(*this);
+    child.parent(this);
     child.index(i);
 
   } // add_child()
@@ -1242,8 +1262,7 @@ public:
   }
 
   /*------------------------------------------------------------------ 
-  | 
-  | 
+  | Remove a given object from the tree 
   ------------------------------------------------------------------*/
   bool remove(const ObjectType& obj, const BBox& obj_bbox)
   {
@@ -1270,94 +1289,21 @@ public:
     // Re-balance the tree
     condense_tree( node );
 
+    // Shorten the tree
+    if ( !(*root_).is_leaf() && (*root_).n_entries() == 1 )
+    {
+      ASSERT( (*root_).child_ptr(0) != nullptr,
+      "RTreeND::remove(): "
+      "Invalid root node.");
+
+      root_ = std::move( (*root_).child_ptr(0) );
+      (*root_).parent( nullptr );
+    }
+
     return true;
 
   } // RTreeND::remove(ObjectType)
 
-
-  /*------------------------------------------------------------------ 
-  | 
-  ------------------------------------------------------------------*/
-  void condense_tree(Node& node)
-  {
-    // Just update the parent bboxes if the given node still contains
-    // enough other objects
-    // --> Do this also if root is leaf
-    if ( node.n_entries() >= M/2 || !node.parent() )
-    {
-      update_parent_bbox(node);
-      return;
-    }
-
-    // Pick all objects of children that will be removed
-    std::vector<const ObjectType*> objects { };
-    std::vector<BBox> obj_bboxes {};
-
-    Node* cur_node_ptr = &node;
-
-    // Traverse until root 
-    while ( (*cur_node_ptr).parent() )
-    {
-      Node& cur_node    = *cur_node_ptr;
-      Node& parent_node = *cur_node.parent();
-
-      if ( cur_node.n_entries() < M/2 )
-      {
-        // Store remaining objects of leaf nodes
-        if ( cur_node.is_leaf() )
-        {
-          for (std::size_t i = 0; i < cur_node.n_entries(); ++i )
-          {
-            objects.push_back( &cur_node.object(i) );
-            obj_bboxes.push_back( cur_node.bbox(i) );
-          }
-        }
-
-        // Remove node
-        std::size_t i = cur_node.index();
-        parent_node.remove_child(i);
-      }
-
-      cur_node_ptr = &parent_node;
-    }
-
-    // Re-insert remaining objects in tree
-    for ( std::size_t i = 0; i < objects.size(); ++i )
-      this->insert(*objects[i], obj_bboxes[i]);
-
-  } // condense_tree()
-
-  /*------------------------------------------------------------------ 
-  | 
-  ------------------------------------------------------------------*/
-  Node* find_object_to_remove(const ObjectType& obj, 
-                              const BBox& obj_bbox,
-                              Node& node,
-                              std::size_t &i_entry) 
-  {
-    // Node is a leaf node: Check if the given object is one of 
-    // the node's entries
-    if ( node.is_leaf() )
-    {
-      for (std::size_t i = 0; i < node.n_entries(); ++i)
-        if ( &obj == &(node.object(i)) )
-        {
-          i_entry = i;
-          return &node;
-        }
-      return nullptr;
-    }
-
-    // Otherwise: Check if the given object is contained in one
-    // of the node's children
-    for (std::size_t i = 0; i < node.n_entries(); ++i)
-      if ( node.bbox(i).bbox_inside_touch( obj_bbox ) )
-        return find_object_to_remove(obj, obj_bbox, 
-                                     node.child(i), i_entry);
-
-    return nullptr;
-
-  } // RTreeND::find_object_to_remove()
 
   /*------------------------------------------------------------------ 
   | Insert a new object into the RTree structure
@@ -1420,7 +1366,7 @@ public:
     {
       Node& cur_child = *node_layer[i];
 
-      cur_child.parent( root );
+      cur_child.parent( &root );
       root.n_entries( i + 1 );
       root.is_leaf( false );
       root.bbox(i, cur_child.bbox() );
@@ -1580,7 +1526,9 @@ private:
 
     Node& parent_node = (*node.parent());
 
-    ASSERT( !parent_node.is_leaf(), "Invalid RTree data structure.");
+    ASSERT( !parent_node.is_leaf(), 
+    "RTreeND::update_parent_bbox(): "
+    "Invalid parent node.");
 
     // If "node" is the "i"-th child of "parent_node", then 
     // "parent_node.bbox(i)" is the bbox, that covers all entries
@@ -1687,6 +1635,96 @@ private:
     return std::move(parent_nodes);
 
   } // RTreeND::build_tree_bulk_insertion()
+
+  /*------------------------------------------------------------------ 
+  | This function is used to re-balance the entire tree after an
+  | object's removal.
+  ------------------------------------------------------------------*/
+  void condense_tree(Node& node)
+  {
+    // Just update the parent bboxes if the given node still contains
+    // enough other objects
+    // --> Do this also if root is leaf
+    if ( node.n_entries() >= M/2 || !node.parent() )
+    {
+      update_parent_bbox(node);
+      return;
+    }
+
+    // Remove all nodes from the tree that contain too less elements
+    // after the removal and collect the in a vector
+    std::vector<std::unique_ptr<Node>> eliminated {}; 
+
+    Node *cur_node_ptr = &node;
+
+    while ( cur_node_ptr )
+    {
+      Node& cur_node = *cur_node_ptr;
+
+      if ( !cur_node.parent() )
+        break;
+
+      Node& parent_node = *cur_node.parent();
+
+      if ( cur_node.n_entries() < M/2 )
+      {
+        std::size_t cur_i = cur_node.index();
+
+        eliminated.push_back( 
+          std::move( parent_node.child_ptr( cur_i ) ) 
+        );
+
+        parent_node.remove_child(cur_i);
+      }
+
+      cur_node_ptr = &parent_node;
+    }
+
+    // Gather the entries from all removed nodes
+    std::vector<const ObjectType*> objects { };
+    std::vector<BBox> obj_bboxes {};
+
+    for (auto& cur_node : eliminated)
+      (*cur_node).collect_entries(objects, obj_bboxes);
+
+    // Re-insert remaining entries in tree
+    for ( std::size_t i = 0; i < objects.size(); ++i )
+      this->insert(*objects[i], obj_bboxes[i]);
+
+  } // condense_tree()
+
+  /*------------------------------------------------------------------ 
+  | Find a given object in the tree which should be removed 
+  | and also find its position in the node that contains the object
+  ------------------------------------------------------------------*/
+  Node* find_object_to_remove(const ObjectType& obj, 
+                              const BBox& obj_bbox,
+                              Node& node,
+                              std::size_t &i_entry) 
+  {
+    // Node is a leaf node: Check if the given object is one of 
+    // the node's entries
+    if ( node.is_leaf() )
+    {
+      for (std::size_t i = 0; i < node.n_entries(); ++i)
+        if ( &obj == &(node.object(i)) )
+        {
+          i_entry = i;
+          return &node;
+        }
+      return nullptr;
+    }
+
+    // Otherwise: Check if the given object is contained in one
+    // of the node's children
+    for (std::size_t i = 0; i < node.n_entries(); ++i)
+      if ( node.bbox(i).bbox_inside_touch( obj_bbox ) )
+        return find_object_to_remove(obj, obj_bbox, 
+                                     node.child(i), i_entry);
+
+    return nullptr;
+
+  } // RTreeND::find_object_to_remove()
 
 
   /*------------------------------------------------------------------ 

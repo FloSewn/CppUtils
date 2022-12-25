@@ -128,14 +128,14 @@ void constructor()
 --------------------------------------------------------------------*/
 void insertion_1d()
 {
-  RTreeND<int,5,int,1> tree {};
+  RTreeND<int,4,int,1> tree {};
   RTreeNDWriter writer { tree };
 
   std::vector<int> values;
   std::vector<BBoxND<int,1>> bboxes;
 
-  int k = 104;
-  int n = 104;
+  int k = 15;
+  int n = 15;
 
   for ( std::size_t i = 0; i < k; ++i )
     values.push_back( i );
@@ -181,23 +181,28 @@ void insertion_1d()
     CHECK( &it != &(values[i++]) );
   }
 
-
+  // Check for correct iterator implementation
   int s1 = std::accumulate(tree.cbegin(), tree.cend(), 0);
   int s2 = std::accumulate(values.cbegin(), values.cend(), 0);
   CHECK( s1 == s2 );
 
   // Remove most entries
-  for (int r = 1; r < k-1; ++r)
+  for (int r = 0; r < n; ++r)
   {
-    CHECK( tree.remove(values[k-r], bboxes[k-r]) );
+    std::size_t i_rem = perm_ids[r];
 
+    // Check for correct removal of entries
+    CHECK( tree.remove(values[i_rem], bboxes[i_rem]) );
+
+    // Check that all entries are still sorted in ascending order
     i = 0;
     for ( const auto& it : tree )
-      CHECK( &it == &(values[i++]) );
-  }
+    {
+      CHECK( it >= i );
+      i == it;
+    }
 
-  std::cout << "-----------------------------------\n\n\n";
-  writer.print(std::cout);
+  }
 
 } // insertion_1d() 
 
