@@ -9,6 +9,7 @@
 
 #include <memory>    // std::unique_ptr
 #include <array>     // std::array
+#include <list>      // std::list
 #include <vector>    // std::vector
 #include <stdexcept> // std::runtime_error
 #include <iomanip>   // std::setprecision
@@ -71,6 +72,7 @@ class RTreeNodeND;
 
 template<RTREE_TREE_DEF>
 class RTreeND;
+
 
 /*********************************************************************
 * This class defines a strategy for the sorting of RTree nodes
@@ -1099,6 +1101,13 @@ public:
   using Entries    = std::array<Entry,M>;
 
   /*------------------------------------------------------------------ 
+  | 
+  ------------------------------------------------------------------*/
+  using DistanceFunction 
+    = std::function<CoordType(const VecND<CoordType, Dim>& pos, 
+                              const ObjectType& obj)>;
+
+  /*------------------------------------------------------------------ 
   | Iterator implementation
   ------------------------------------------------------------------*/
   struct Iterator
@@ -1260,6 +1269,171 @@ public:
     }
     return *node;
   }
+
+
+  /*------------------------------------------------------------------ 
+  |
+  ------------------------------------------------------------------*/
+  class KNearestList
+  {
+  public:
+    using List           = std::list<const ObjectType*>;
+    using iterator       = typename List::iterator;
+    using const_iterator = typename List::const_iterator;
+
+    iterator begin() { return nbrs_.begin(); }
+    iterator end() { return nbrs_.end(); }
+
+    const_iterator cbegin() const { return nbrs_.cbegin(); }
+    const_iterator cend() const { return nbrs_.cend(); }
+
+    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
+    | Constructor
+    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */ 
+    KNearestList(std::size_t k) 
+    : k_            { k } 
+    , max_dist_sqr_ { std::numeric_limits<CoordType>::max() }
+    {}
+
+    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
+    | Getters
+    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */ 
+    std::size_t k() const { return k_; }
+    CoordType max_dist_sqr() const { return max_dist_sqr_; }
+
+    List& values() { return nbrs_; }
+    const List& values() const { return nbrs_; }
+
+    std::list<CoordType>& squared_distance() 
+    { return dists_sqr_; }
+    const std::list<CoordType>& squared_distance() const 
+    { return dists_sqr_; }
+
+    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
+    | Insert an element to the list
+    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */ 
+    void insert(const ObjectType& obj, CoordType obj_dist)
+    {
+      // Find place to add new entry into list 
+      // and eventually remove last entry
+      auto dist_iter = dists_sqr_.begin();
+      auto nbrs_iter = nbrs_.begin();
+
+      for (; nbrs_iter != nbrs_.end(); ++nbrs_iter, ++dist_iter)
+      {
+        if ( obj_dist >= *dist_iter )
+          continue;
+
+        // Add new entry to list
+        dists_sqr_.insert(dist_iter, obj_dist);
+        nbrs_.insert(nbrs_iter, &obj);
+
+        // Remove old entry
+        if ( nbrs_.size() > k_ )
+        {
+          dists_sqr_.erase( --( dists_sqr_.end() ) );
+          nbrs_.erase( --( nbrs_.end() ) );
+          max_dist_sqr_ = *(--( dists_sqr_.end() ));
+        }
+
+        ASSERT( dists_sqr_.size() <= k_,
+        "RTreeND::KNearestList::insert(): "
+        "Invalid number of distance list entries.");
+
+        ASSERT( nbrs_.size() <= k_,
+        "RTreeND::KNearestList::insert(): "
+        "Invalid number of neighbor list entries.");
+        
+        return;
+      }
+
+      // Append entry to the end 
+      nbrs_.push_back( &obj );
+      dists_sqr_.push_back( obj_dist );
+
+      if ( nbrs_.size() == k_ )
+        max_dist_sqr_ = obj_dist;
+
+    } // insert()
+
+  private:
+    std::size_t                   k_            {};
+    std::list<const ObjectType*>  nbrs_         {};
+    std::list<CoordType>          dists_sqr_    {};
+    CoordType                     max_dist_sqr_ {};
+
+  }; // KNearestList
+
+  /*------------------------------------------------------------------ 
+  | Query the nearest entry to a given input position
+  |
+  | Reference:
+  | ----------
+  | Hjaltason and Samet: Distance browsing in spatial database,
+  | ACM Transactions on Database Systems (TODS) 24.2 (1999): 265-318
+  ------------------------------------------------------------------*/
+  KNearestList k_nearest(const VecND<CoordType,Dim> pos, 
+                         const DistanceFunction& dist_fun, 
+                         std::size_t k) const
+  {
+    KNearestList nearest_list { k };
+
+    k_nearest_traversal(nearest_list, pos, *root_, dist_fun);
+
+    return std::move( nearest_list );
+  }
+
+
+  /*------------------------------------------------------------------ 
+  |
+  ------------------------------------------------------------------*/
+  void k_nearest_traversal(KNearestList& nearest_list,
+                           const VecND<CoordType,Dim> pos,
+                           const Node& node,
+                           const DistanceFunction& sqr_dist_fun) const
+  {
+    if ( node.is_leaf() )
+    {
+      for (std::size_t i = 0; i < node.n_entries(); ++i)
+      {
+        CoordType dist_sqr = sqr_dist_fun(pos, node.object(i));
+
+        if ( dist_sqr < nearest_list.max_dist_sqr() )
+          nearest_list.insert( node.object(i), dist_sqr );
+      }
+    }
+    else
+    {
+      // Sort entries of current node in ascending order by their 
+      // distance to query position
+      std::vector<size_t> index( node.n_entries() );
+      std::iota(index.begin(), index.end(), 0);
+
+      std::stable_sort(index.begin(), index.end(),
+        [&node, &pos](size_t i1, size_t i2)
+      {
+        CoordType d1 = node.bbox(i1).point_dist_sqr( pos );
+        CoordType d2 = node.bbox(i2).point_dist_sqr( pos );
+        return d1 < d2;
+      });
+
+      // Recursively call this function on children
+      for ( std::size_t i = 0; i < node.n_entries(); ++i )
+      {
+        CoordType dist_sqr = node.bbox(index[i]).point_dist_sqr(pos);
+
+        if ( dist_sqr >= nearest_list.max_dist_sqr() )
+          break;
+        
+        k_nearest_traversal(nearest_list, pos, 
+                            node.child(index[i]), sqr_dist_fun);
+      }
+    }
+
+
+
+  } // k_nearest_traversal()
+
 
   /*------------------------------------------------------------------ 
   | Remove a given object from the tree 

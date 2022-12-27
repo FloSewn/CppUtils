@@ -19,10 +19,56 @@
 #include "VecND.h"
 #include "Testing.h"
 #include "RTreeND.h"
+#include "Geometry.h"
 
 namespace RTreeNDTests 
 {
 using namespace CppUtils;
+
+
+/*--------------------------------------------------------------------
+| 
+--------------------------------------------------------------------*/
+class Edge
+{
+  using Vec  = VecND<double,2>;
+  using BBox = BBoxND<double,2>;
+
+public:
+  Edge(const Vec& v1, const Vec& v2) : v1_{v1}, v2_{v2} 
+  {
+    Vec v_min { std::min(v1_.x, v2_.x),
+                std::min(v1_.y, v2_.y) };
+
+    Vec v_max { std::max(v1_.x, v2_.x),
+                std::max(v1_.y, v2_.y) };
+
+    bbox_ = BBox { v_min, v_max };
+  }
+
+  const Vec& v1() const { return v1_; }
+  Vec& v1() { return v1_; }
+
+  const Vec& v2() const { return v2_; }
+  Vec& v2() { return v2_; }
+
+  double dist_sqr(const Vec& p) const
+  { return vertex_edge_dist_sqr(p, v1_, v2_); }  
+
+  double dist(const Vec& p) const
+  { return sqrt( this->dist_sqr(p) ); }
+
+  const BBox& bbox() const { return bbox_; }
+  BBox& bbox() { return bbox_; }
+
+private:
+
+  Vec  v1_ {};
+  Vec  v2_ {};
+  BBox bbox_ {};
+
+}; // Edge
+
 
 /*--------------------------------------------------------------------
 | Test sorting strategies
@@ -208,7 +254,7 @@ void insertion_1d()
 
 /*--------------------------------------------------------------------
 | Test bulk insertion of many objects
---------------------------------------------------------------------*
+--------------------------------------------------------------------*/
 void bulk_insertion_2d()
 {
   RTreeND<int,3,double,2> tree {};
@@ -270,11 +316,11 @@ void bulk_insertion_2d()
   CHECK( c_2.left() == &c_1 );
 
 
-} // bulk_insertion_2d() */
+} // bulk_insertion_2d() 
 
 /*--------------------------------------------------------------------
 | Test bulk insertion of many objects
---------------------------------------------------------------------*
+--------------------------------------------------------------------*/
 void bulk_insertion_3d()
 {
   RTreeND<int, 3, double, 3> tree {};
@@ -314,7 +360,45 @@ void bulk_insertion_3d()
   writer.write_to_txt( file_name );
   writer.print(std::cout);
 
-} // bulk_insertion_3d() */
+} // bulk_insertion_3d() 
+
+
+/*--------------------------------------------------------------------
+| Test k-nearest neighbor query
+--------------------------------------------------------------------*/
+void nearest_neighbor()
+{
+  RTreeND<Edge,4,double,2> tree {};
+
+  std::vector<Edge> edges;
+
+  edges.push_back( { {1.0, 1.0}, {2.0, 3.0} } );
+  edges.push_back( { {2.0, 0.0}, {2.0,-3.0} } );
+  edges.push_back( { {4.0, 0.0}, {4.0,-3.0} } );
+  edges.push_back( { {0.0, 0.0}, {0.0, 4.0} } );
+  edges.push_back( { {0.0, 5.0}, {5.0, 5.0} } );
+
+  for (std::size_t i = 0; i < edges.size(); ++i)
+    tree.insert( edges[i], edges[i].bbox() );
+
+  RTreeND<Edge,4,double,2>::DistanceFunction 
+  dist_fun = [](const VecND<double,2> p, const Edge& e)
+  { return e.dist_sqr( p ); };
+
+  auto neighbors = tree.k_nearest( {-1.0,-1.0}, dist_fun, 1 );
+
+  auto nbr_it = neighbors.values().begin();
+  auto dist_it = neighbors.squared_distance().begin();
+
+  for ( ; nbr_it != neighbors.values().end(); ++nbr_it, ++dist_it )
+  {
+    std::cout << "Distance: " << *dist_it << std::endl;
+  }
+
+  
+
+
+} // nearest_neighbor()
 
 } // namespace RTreeNDTests
 
@@ -324,14 +408,11 @@ void bulk_insertion_3d()
 *********************************************************************/
 void run_tests_RTreeND()
 {
-  RTreeNDTests::nearest_x_sort();
-
-  RTreeNDTests::constructor();
-  std::cout << "-----------------------------------------" << std::endl;
-  RTreeNDTests::insertion_1d();
-  std::cout << "-----------------------------------------" << std::endl;
+  //RTreeNDTests::nearest_x_sort();
+  //RTreeNDTests::constructor();
+  //RTreeNDTests::insertion_1d();
   //RTreeNDTests::bulk_insertion_2d();
-  //std::cout << "-----------------------------------------" << std::endl;
   //RTreeNDTests::bulk_insertion_3d();
+  RTreeNDTests::nearest_neighbor();
 
 } // run_tests_RTreeND()
