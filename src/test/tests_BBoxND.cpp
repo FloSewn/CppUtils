@@ -167,6 +167,24 @@ void bbox_1d()
 
 } // bbox_1d()
 
+/*--------------------------------------------------------------------
+| Test distance
+--------------------------------------------------------------------*/
+void distance()
+{
+  BBoxND<int, 1> a { 2, 3 };
+
+  CHECK( a.point_dist( {4} ) == 1 );
+  CHECK( a.point_dist( {0} ) == 2 );
+
+  BBoxND<int, 2> b { {1,1}, {4,4} };
+
+  CHECK( b.point_dist( {0,1} ) == 1 );
+  CHECK( b.point_dist( {1,5} ) == 1 );
+  CHECK( b.point_dist( {5,1} ) == 1 );
+
+}
+
 } // namespace BBoxNDTests
 
 
@@ -178,5 +196,6 @@ void run_tests_BBoxND()
   BBoxNDTests::constructor();
   BBoxNDTests::intersection();
   BBoxNDTests::bbox_1d();
+  BBoxNDTests::distance();
 
 } // run_tests_BBoxND()

@@ -297,6 +297,33 @@ public:
     return (is_1 || is_2);
   }
 
+  /*------------------------------------------------------------------ 
+  | Compute the squared distance from a given point to the BBoxND
+  | 
+  | Reference:
+  | ----------
+  | https://stackoverflow.com/questions/5254838/calculating-\
+  | distance-between-a-point-and-a-rectangular-box-nearest-point
+  ------------------------------------------------------------------*/
+  T point_dist_sqr(const Vec& p) const
+  {
+    Vec delta {};
+
+    const Vec a = lowleft_ - p;
+    const Vec b = p - upright_;
+
+    std::transform(a.cbegin(), a.cend(), b.cbegin(), delta.begin(),
+     [](T ai, T bi) { return std::max<T>( {ai, {}, bi} ); });
+
+    return delta.norm_sqr();
+  }
+
+  /*------------------------------------------------------------------ 
+  | Compute the distance from a given point to the BBoxND
+  ------------------------------------------------------------------*/
+  T point_dist(const Vec& p) const
+  { return sqrt( point_dist_sqr(p) ); }
+
 
 private:
   Vec  lowleft_ {};
