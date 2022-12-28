@@ -29,7 +29,8 @@ endif()
 if (CMAKE_BUILD_TYPE MATCHES "Debug")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wunused-variable")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
-  #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
+  #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNDEBUG")
 endif()
 
 # Add config file
