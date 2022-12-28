@@ -1118,6 +1118,9 @@ public:
     using pointer           = ObjectType*;
     using reference         = ObjectType&;
 
+    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
+    | Constructor
+    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */ 
     Iterator() {}
     Iterator(Node& node) : cur_node_ {&node} 
     { 
@@ -1125,6 +1128,9 @@ public:
         cur_node_ = nullptr;
     }
 
+    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
+    | Operators
+    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */ 
     reference operator*() const 
     { return cur_node_->object(cur_index_); }
 
@@ -1152,6 +1158,9 @@ public:
     friend bool operator!= (const Iterator& a, const Iterator& b) 
     { return !(a == b); }
 
+    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
+    | Attributes
+    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */ 
   private:
     Node* cur_node_ { nullptr };
     std::size_t cur_index_ { 0 };
@@ -1169,6 +1178,9 @@ public:
     using pointer           = ObjectType*;
     using reference         = ObjectType&;
 
+    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
+    | Constructor
+    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */ 
     ConstantIterator() {}
     ConstantIterator(Node& node) : cur_node_ {&node} 
     { 
@@ -1176,6 +1188,9 @@ public:
         cur_node_ = nullptr;
     }
 
+    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
+    | Operators
+    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */ 
     const reference operator*() const 
     { return cur_node_->object(cur_index_); }
 
@@ -1205,12 +1220,14 @@ public:
     (const ConstantIterator& a, const ConstantIterator& b) 
     { return !(a == b); }
 
+    /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
+    | Attributes
+    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */ 
   private:
     Node* cur_node_ { nullptr };
     std::size_t cur_index_ { 0 };
 
   }; // ConstantIterator 
-
 
   Iterator begin() { return Iterator( leaf_leftmost() ); }
   Iterator end() { return Iterator(); }
@@ -1222,57 +1239,8 @@ public:
 
 
   /*------------------------------------------------------------------ 
-  | Constructor
-  ------------------------------------------------------------------*/
-  RTreeND()
-  {
-    root_ = std::make_unique<Node>(node_id_++);
-  }
-
-  /*------------------------------------------------------------------ 
-  | Getter
-  ------------------------------------------------------------------*/
-  Node& root() { return *root_; }
-  const Node& root() const { return *root_; }
-
-  /*------------------------------------------------------------------ 
-  | Get the height of the entire tree
-  ------------------------------------------------------------------*/
-  std::size_t height() const 
-  {
-    std::size_t height = 0;
-    height = (*root_).increment_tree_height(height);
-    return height;
-  } 
-
-  /*------------------------------------------------------------------ 
-  | This function returns the leftmost leaf in the tree
-  ------------------------------------------------------------------*/
-  Node& leaf_leftmost() const
-  {
-    Node* node = root_.get();
-    while ( !(*node).is_leaf() )
-      node = (*node).child_ptr(0).get();
-    return *node;
-  }
-
-  /*------------------------------------------------------------------ 
-  | This function returns the rightmost leaf in the tree
-  ------------------------------------------------------------------*/
-  Node& leaf_rightmost() const
-  {
-    Node* node = root_.get();
-    while ( !(*node).is_leaf() )
-    {
-      std::size_t n = (*node).n_entries();
-      node = (*node).child_ptr(n-1).get();
-    }
-    return *node;
-  }
-
-
-  /*------------------------------------------------------------------ 
-  |
+  | A sub-class that is returned after the Query for k nearst 
+  | neighbors of the tree
   ------------------------------------------------------------------*/
   class KNearestList
   {
@@ -1304,9 +1272,9 @@ public:
     List& values() { return nbrs_; }
     const List& values() const { return nbrs_; }
 
-    std::list<CoordType>& squared_distance() 
+    std::list<CoordType>& squared_distances() 
     { return dists_sqr_; }
-    const std::list<CoordType>& squared_distance() const 
+    const std::list<CoordType>& squared_distances() const 
     { return dists_sqr_; }
 
     /*- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -  
@@ -1364,76 +1332,88 @@ public:
 
   }; // KNearestList
 
+
   /*------------------------------------------------------------------ 
-  | Query the nearest entry to a given input position
+  | RTreeND Constructor
+  ------------------------------------------------------------------*/
+  RTreeND()
+  {
+    root_ = std::make_unique<Node>(node_id_++);
+  }
+
+  /*------------------------------------------------------------------ 
+  | Getter
+  ------------------------------------------------------------------*/
+  Node& root() { return *root_; }
+  const Node& root() const { return *root_; }
+
+  /*------------------------------------------------------------------ 
+  | Get the height of the entire tree
+  ------------------------------------------------------------------*/
+  std::size_t height() const 
+  {
+    std::size_t height = 0;
+    height = (*root_).increment_tree_height(height);
+    return height;
+  } 
+
+  /*------------------------------------------------------------------ 
+  | This function returns the leftmost leaf in the tree
+  ------------------------------------------------------------------*/
+  Node& leaf_leftmost() const
+  {
+    Node* node = root_.get();
+    while ( !(*node).is_leaf() )
+      node = (*node).child_ptr(0).get();
+    return *node;
+  }
+
+  /*------------------------------------------------------------------ 
+  | This function returns the rightmost leaf in the tree
+  ------------------------------------------------------------------*/
+  Node& leaf_rightmost() const
+  {
+    Node* node = root_.get();
+    while ( !(*node).is_leaf() )
+    {
+      std::size_t n = (*node).n_entries();
+      node = (*node).child_ptr(n-1).get();
+    }
+    return *node;
+  }
+
+  /*------------------------------------------------------------------ 
+  | Query the k nearest entries to a given input position
+  | The input function "sqr_dist_fun" must return the SQUARED distance
+  | between the query point and a given object in the tree.
   |
   | Reference:
   | ----------
   | Hjaltason and Samet: Distance browsing in spatial database,
   | ACM Transactions on Database Systems (TODS) 24.2 (1999): 265-318
   ------------------------------------------------------------------*/
-  KNearestList k_nearest(const VecND<CoordType,Dim> pos, 
-                         const DistanceFunction& dist_fun, 
-                         std::size_t k) const
+  KNearestList nearest(const VecND<CoordType,Dim> pos, 
+                       const DistanceFunction& sqr_dist_fun, 
+                       std::size_t k) const
   {
     KNearestList nearest_list { k };
 
-    k_nearest_traversal(nearest_list, pos, *root_, dist_fun);
+    k_nearest_traversal(nearest_list, pos, *root_, sqr_dist_fun);
 
     return std::move( nearest_list );
-  }
 
+  } // RTreeND::nearest()
 
   /*------------------------------------------------------------------ 
-  |
+  | Query the nearest entry to a given input position
   ------------------------------------------------------------------*/
-  void k_nearest_traversal(KNearestList& nearest_list,
-                           const VecND<CoordType,Dim> pos,
-                           const Node& node,
-                           const DistanceFunction& sqr_dist_fun) const
+  const ObjectType* nearest(const VecND<CoordType,Dim> pos, 
+                            const DistanceFunction& sqr_dist_fun) const
   {
-    if ( node.is_leaf() )
-    {
-      for (std::size_t i = 0; i < node.n_entries(); ++i)
-      {
-        CoordType dist_sqr = sqr_dist_fun(pos, node.object(i));
+    auto list = nearest(pos, sqr_dist_fun, 1);
+    return *list.begin();
 
-        if ( dist_sqr < nearest_list.max_dist_sqr() )
-          nearest_list.insert( node.object(i), dist_sqr );
-      }
-    }
-    else
-    {
-      // Sort entries of current node in ascending order by their 
-      // distance to query position
-      std::vector<size_t> index( node.n_entries() );
-      std::iota(index.begin(), index.end(), 0);
-
-      std::stable_sort(index.begin(), index.end(),
-        [&node, &pos](size_t i1, size_t i2)
-      {
-        CoordType d1 = node.bbox(i1).point_dist_sqr( pos );
-        CoordType d2 = node.bbox(i2).point_dist_sqr( pos );
-        return d1 < d2;
-      });
-
-      // Recursively call this function on children
-      for ( std::size_t i = 0; i < node.n_entries(); ++i )
-      {
-        CoordType dist_sqr = node.bbox(index[i]).point_dist_sqr(pos);
-
-        if ( dist_sqr >= nearest_list.max_dist_sqr() )
-          break;
-        
-        k_nearest_traversal(nearest_list, pos, 
-                            node.child(index[i]), sqr_dist_fun);
-      }
-    }
-
-
-
-  } // k_nearest_traversal()
-
+  } // RTreeND::nearest()
 
   /*------------------------------------------------------------------ 
   | Remove a given object from the tree 
@@ -1477,7 +1457,6 @@ public:
     return true;
 
   } // RTreeND::remove(ObjectType)
-
 
   /*------------------------------------------------------------------ 
   | Insert a new object into the RTree structure
@@ -1551,6 +1530,57 @@ public:
 
 
 private:
+
+  /*------------------------------------------------------------------ 
+  | Traverse the tree to find k-nearest neighbors to a given 
+  | query point in the tree
+  ------------------------------------------------------------------*/
+  void k_nearest_traversal(KNearestList& nearest_list,
+                           const VecND<CoordType,Dim> pos,
+                           const Node& node,
+                           const DistanceFunction& sqr_dist_fun) const
+  {
+    // Obtain the k nearest neighbors among all objects of 
+    // this leaf node
+    if ( node.is_leaf() )
+    {
+      for (std::size_t i = 0; i < node.n_entries(); ++i)
+      {
+        CoordType dist_sqr = sqr_dist_fun(pos, node.object(i));
+
+        if ( dist_sqr < nearest_list.max_dist_sqr() )
+          nearest_list.insert( node.object(i), dist_sqr );
+      }
+    }
+    else
+    {
+      // Sort entries of current node in ascending order by their 
+      // distance to query position
+      std::vector<size_t> index( node.n_entries() );
+      std::iota(index.begin(), index.end(), 0);
+
+      std::stable_sort(index.begin(), index.end(),
+        [&node, &pos](size_t i1, size_t i2)
+      {
+        CoordType d1 = node.bbox(i1).point_dist_sqr( pos );
+        CoordType d2 = node.bbox(i2).point_dist_sqr( pos );
+        return d1 < d2;
+      });
+
+      // Recursively call this function on children
+      for ( std::size_t i = 0; i < node.n_entries(); ++i )
+      {
+        CoordType dist_sqr = node.bbox(index[i]).point_dist_sqr(pos);
+
+        if ( dist_sqr >= nearest_list.max_dist_sqr() )
+          break;
+        
+        k_nearest_traversal(nearest_list, pos, 
+                            node.child(index[i]), sqr_dist_fun);
+      }
+    }
+
+  } // k_nearest_traversal()
 
   /*------------------------------------------------------------------ 
   | This function splits a given node. If the parent of this given

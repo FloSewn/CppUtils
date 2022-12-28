@@ -385,14 +385,37 @@ void nearest_neighbor()
   dist_fun = [](const VecND<double,2> p, const Edge& e)
   { return e.dist_sqr( p ); };
 
-  auto neighbors = tree.k_nearest( {-1.0,-1.0}, dist_fun, 1 );
+  VecND<double,2> query_point {-1.0,-1.0};
 
-  auto nbr_it = neighbors.values().begin();
-  auto dist_it = neighbors.squared_distance().begin();
+  // k-nearest neighbor search
+  auto neighbors = tree.nearest( query_point, dist_fun, 4 );
 
-  for ( ; nbr_it != neighbors.values().end(); ++nbr_it, ++dist_it )
+  // nearest-neigbhor search
+  const Edge* nearest = tree.nearest( query_point, dist_fun );
+
+  // Compute distance and sort  
+  std::vector<size_t> ids( edges.size() );
+  std::iota(ids.begin(), ids.end(), 0);
+
+  std::stable_sort(ids.begin(), ids.end(),
+    [&edges, &query_point](std::size_t i1, std::size_t i2)
   {
-    std::cout << "Distance: " << *dist_it << std::endl;
+    double d1 = edges[i1].dist_sqr(query_point);
+    double d2 = edges[i2].dist_sqr(query_point);
+    return d1 < d2;
+  });
+
+  std::size_t i = 0;
+  auto nbr_it   = neighbors.values().begin();
+  auto dist_it  = neighbors.squared_distances().begin();
+
+  CHECK( nearest != nullptr );
+  CHECK( nearest == &edges[ids[0]] );
+
+  for ( ; nbr_it != neighbors.values().end(); ++nbr_it, ++dist_it, ++i )
+  {
+    CHECK( *nbr_it == &edges[ids[i]] );
+    CHECK( EQ( *dist_it, edges[ids[i]].dist_sqr(query_point) ) );
   }
 
   

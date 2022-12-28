@@ -95,13 +95,18 @@ using Vertex2d = VertexType<double,2>;
 * The actual benchmark  
 *********************************************************************/
 template<std::size_t TREE_M>
-void benchmark(std::size_t n_samples, bool bulk_insertion=false)
+void benchmark(std::size_t n_samples, 
+               std::size_t n_query, 
+               bool object_removal=false,
+               bool bulk_insertion=false,
+               bool brute_force=false)
 {
   /*------------------------------------------------------------------
   | Initialize 
   ------------------------------------------------------------------*/
   std::vector<Vertex2d> vertices_sorted;
   std::vector<Vertex2d> vertices;
+  std::vector<Vertex2d> query_points;
   Timer timer {};
   SpiralFunction fun( 2.5, -3.4, 6.5);
   RTreeND<Vertex2d,TREE_M,double,2> tree {};
@@ -134,6 +139,47 @@ void benchmark(std::size_t n_samples, bool bulk_insertion=false)
     vertices.push_back( vertices_sorted[perm_ids[i]] );
 
   /*------------------------------------------------------------------
+  | Nearest-neighbor query points initialization
+  ------------------------------------------------------------------*/
+  timer.count("Query initialization");
+
+  // Obtain extents of all vertices
+  auto v_x_min = std::min_element(vertices.begin(), vertices.end(),
+                   [](const Vertex2d& v1, const Vertex2d& v2)
+                   { return v1.pos().x < v2.pos().x; });
+
+  auto v_x_max = std::max_element(vertices.begin(), vertices.end(),
+                   [](const Vertex2d& v1, const Vertex2d& v2)
+                   { return v1.pos().x < v2.pos().x; });
+
+  auto v_y_min = std::min_element(vertices.begin(), vertices.end(),
+                   [](const Vertex2d& v1, const Vertex2d& v2)
+                   { return v1.pos().y < v2.pos().y; });
+
+  auto v_y_max = std::max_element(vertices.begin(), vertices.end(),
+                   [](const Vertex2d& v1, const Vertex2d& v2)
+                   { return v1.pos().y < v2.pos().y; });
+
+  double x_min   = (*v_x_min).pos().x;
+  double x_max   = (*v_x_max).pos().y;
+  double y_min   = (*v_y_min).pos().x;
+  double y_max   = (*v_y_max).pos().y;
+  double dx_glob = x_max - x_min;
+  double dy_glob = y_max - y_min;
+
+  std::random_device               rand_dev;
+  std::mt19937                     gen( rand_dev() );
+  std::uniform_real_distribution<> distrib(0, 1);
+
+  for (int i = 0; i < n_query; ++i)
+  {
+    double xq = x_min + dx_glob * distrib(gen);
+    double yq = y_min + dy_glob * distrib(gen);
+
+    query_points.push_back( {xq, yq} );
+  }
+
+  /*------------------------------------------------------------------
   | Insert tree data
   ------------------------------------------------------------------*/
   timer.count("RTreeND object insertion");
@@ -154,18 +200,68 @@ void benchmark(std::size_t n_samples, bool bulk_insertion=false)
   }
 
   /*------------------------------------------------------------------
+  | Query data points
+  ------------------------------------------------------------------*/
+  typename RTreeND<Vertex2d,TREE_M,double,2>::DistanceFunction 
+  sqr_dist_fun = [](const VecND<double,2> p, const Vertex2d& v)
+  { return (v.pos()-p).norm_sqr(); };
+
+  timer.count("RTreeND nearest query");
+
+  std::vector<const Vertex2d*> winners_rtree {};
+
+  for ( auto& q : query_points )
+    winners_rtree.push_back( tree.nearest( q.pos(), sqr_dist_fun ) );
+
+
+  if ( brute_force )
+  {
+    timer.count("Brute force nearest query");
+
+    std::vector<const Vertex2d*> winners_bf {};
+
+    for ( auto& q : query_points )
+    {
+      std::vector<size_t> ids( vertices.size() );
+      std::iota(ids.begin(), ids.end(), 0);
+
+      std::stable_sort(ids.begin(), ids.end(),
+        [&vertices, &q](size_t i1, size_t i2)
+      {
+        double d1 = (vertices[i1].pos() - q.pos()).norm_sqr();
+        double d2 = (vertices[i2].pos() - q.pos()).norm_sqr();
+        return d1 < d2;
+      });
+
+      winners_bf.push_back( &vertices[ids[0]] );
+    }
+
+
+    timer.count("Check for nearest query");
+    for (std::size_t i = 0; i < query_points.size(); ++i)
+    {
+      ASSERT( winners_rtree[i] != nullptr, "ERROR_1");
+      ASSERT( winners_bf[i] != nullptr, "ERROR_2");
+      ASSERT( winners_rtree[i]->pos() == winners_bf[i]->pos(), "ERROR_3");
+    }
+  }
+
+  /*------------------------------------------------------------------
   | Remove random tree data
   ------------------------------------------------------------------*/
-  timer.count("RTreeND object removal");
-
-  std::vector<size_t> removal_ids( n_samples / 2 );
-  std::iota(removal_ids.begin(), removal_ids.end(), 0);
-  std::shuffle(removal_ids.begin(), removal_ids.end(), rng);
-
-  for (int i = 0; i < removal_ids.size(); ++i)
+  if ( object_removal )
   {
-    const auto& v = vertices[removal_ids[i]];
-    tree.remove(v, v.bbox() );
+    timer.count("RTreeND object removal");
+
+    std::vector<size_t> removal_ids( n_samples / 2 );
+    std::iota(removal_ids.begin(), removal_ids.end(), 0);
+    std::shuffle(removal_ids.begin(), removal_ids.end(), rng);
+
+    for (int i = 0; i < removal_ids.size(); ++i)
+    {
+      const auto& v = vertices[removal_ids[i]];
+      tree.remove(v, v.bbox() );
+    }
   }
 
   /*------------------------------------------------------------------
@@ -177,11 +273,9 @@ void benchmark(std::size_t n_samples, bool bulk_insertion=false)
 
   LOG(INFO) << "n_samples: " << n_samples;
 
-  LOG(INFO) << timer.message(1)  << ": " 
-            << timer.delta(1) << "s";
-  
-  LOG(INFO) << timer.message(2)  << ": " 
-            << timer.delta(2) << "s";
+  for ( std::size_t i = 0; i < timer.size()-1; ++i )
+    LOG(INFO) << timer.message(i)  << ": " 
+              << timer.delta(i) << "s";
 
   /*------------------------------------------------------------------
   | 
@@ -214,7 +308,14 @@ void benchmark(std::size_t n_samples, bool bulk_insertion=false)
 void run_benchmarks_RTreeND()
 {
   std::size_t n_samples = 10000;
+  std::size_t n_query   = 100;
+  bool object_removal   = false;
+  bool bulk_insertion   = true;
+  bool brute_force      = true;
 
-  RTreeNDBenchmarks::benchmark<64>(n_samples, false);
+  RTreeNDBenchmarks::benchmark<64>(n_samples, n_query, 
+                                   object_removal,
+                                   bulk_insertion,
+                                   brute_force);
   
 } // run_benchmarks_RTreeND()
