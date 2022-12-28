@@ -1146,6 +1146,8 @@ public:
         cur_node_  = cur_node_->right();
         cur_index_ = 0;
       }
+
+      return *this;
     }
 
     Iterator operator++(int) 
@@ -1206,6 +1208,8 @@ public:
         cur_node_  = cur_node_->right();
         cur_index_ = 0;
       }
+
+      return *this;
     }
 
     ConstantIterator operator++(int) 

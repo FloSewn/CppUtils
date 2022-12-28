@@ -21,6 +21,8 @@
 #include "RTreeND.h"
 #include "Geometry.h"
 
+#include "Timer.h"
+
 namespace RTreeNDTests 
 {
 using namespace CppUtils;
@@ -418,10 +420,8 @@ void nearest_neighbor()
     CHECK( EQ( *dist_it, edges[ids[i]].dist_sqr(query_point) ) );
   }
 
-  
-
-
 } // nearest_neighbor()
+
 
 } // namespace RTreeNDTests
 
@@ -431,11 +431,11 @@ void nearest_neighbor()
 *********************************************************************/
 void run_tests_RTreeND()
 {
-  //RTreeNDTests::nearest_x_sort();
-  //RTreeNDTests::constructor();
-  //RTreeNDTests::insertion_1d();
-  //RTreeNDTests::bulk_insertion_2d();
-  //RTreeNDTests::bulk_insertion_3d();
+  RTreeNDTests::nearest_x_sort();
+  RTreeNDTests::constructor();
+  RTreeNDTests::insertion_1d();
+  RTreeNDTests::bulk_insertion_2d();
+  RTreeNDTests::bulk_insertion_3d();
   RTreeNDTests::nearest_neighbor();
 
 } // run_tests_RTreeND()
