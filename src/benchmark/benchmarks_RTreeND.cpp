@@ -202,7 +202,7 @@ void benchmark(std::size_t n_samples,
   /*------------------------------------------------------------------
   | Query data points
   ------------------------------------------------------------------*/
-  typename RTreeND<Vertex2d,TREE_M,double,2>::DistanceFunction 
+  typename RTreeND<Vertex2d,TREE_M,double,2>::ObjectDistFunction 
   sqr_dist_fun = [](const VecND<double,2> p, const Vertex2d& v)
   { return (v.pos()-p).norm_sqr(); };
 
@@ -222,6 +222,23 @@ void benchmark(std::size_t n_samples,
 
     for ( auto& q : query_points )
     {
+      std::size_t i_winner = 0;
+      double max_dist = std::numeric_limits<double>::max();
+
+      for ( std::size_t i = 0; i < vertices.size(); ++i )
+      {
+        double dist = (vertices[i].pos() - q.pos()).norm_sqr();
+
+        if ( dist < max_dist )
+        {
+          max_dist = dist;
+          i_winner = i;
+        }
+      }
+
+      winners_bf.push_back( &vertices[i_winner] );
+
+      /*
       std::vector<size_t> ids( vertices.size() );
       std::iota(ids.begin(), ids.end(), 0);
 
@@ -234,6 +251,7 @@ void benchmark(std::size_t n_samples,
       });
 
       winners_bf.push_back( &vertices[ids[0]] );
+      */
     }
 
 
@@ -308,12 +326,12 @@ void benchmark(std::size_t n_samples,
 void run_benchmarks_RTreeND()
 {
   std::size_t n_samples = 10000;
-  std::size_t n_query   = 100;
+  std::size_t n_query   = 1000;
   bool object_removal   = false;
   bool bulk_insertion   = true;
   bool brute_force      = true;
 
-  RTreeNDBenchmarks::benchmark<64>(n_samples, n_query, 
+  RTreeNDBenchmarks::benchmark<8>(n_samples, n_query, 
                                    object_removal,
                                    bulk_insertion,
                                    brute_force);

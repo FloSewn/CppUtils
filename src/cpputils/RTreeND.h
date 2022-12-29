@@ -702,13 +702,13 @@ public:
   /*------------------------------------------------------------------ 
   | Collect all entries of this node or all its following child nodes
   ------------------------------------------------------------------*/
-  void collect_entries(std::vector<const ObjectType*>& objects,
-                       std::vector<BBox>& bboxes) const
+  void collect_entry_bboxes(std::vector<const ObjectType*>& objects,
+                            std::vector<BBox>& bboxes) const
   {
     if ( !is_leaf() )
     {
       for (std::size_t i = 0; i < n_entries(); ++i )
-        child(i).collect_entries(objects, bboxes);
+        child(i).collect_entry_bboxes(objects, bboxes);
     }
     else
     {
@@ -719,7 +719,7 @@ public:
       }
     }
 
-  } // collect_entries()
+  } // collect_entry_bboxes()
 
   /*------------------------------------------------------------------ 
   | Function used to estimate the tree height
@@ -1103,9 +1103,14 @@ public:
   /*------------------------------------------------------------------ 
   | 
   ------------------------------------------------------------------*/
-  using DistanceFunction 
-    = std::function<CoordType(const VecND<CoordType, Dim>& pos, 
+  using ObjectDistFunction 
+    = std::function<CoordType(const VecND<CoordType, Dim>& query, 
                               const ObjectType& obj)>;
+
+  template <typename QueryObject = VecND<CoordType,Dim>>
+  using BBoxDistFunction
+    = std::function<CoordType(const QueryObject& query, 
+                              const BBox& bbox)>;
 
   /*------------------------------------------------------------------ 
   | Iterator implementation
@@ -1387,22 +1392,42 @@ public:
   }
 
   /*------------------------------------------------------------------ 
+  | Query all objects in a given bounding box
+  ------------------------------------------------------------------*
+  std::vector<const ObjectType*> 
+  query(const BBox& query_bbox,
+        const QueryFunction& query_fun) const
+  {
+
+  } // query() */
+
+  /*------------------------------------------------------------------ 
   | Query the k nearest entries to a given input position
   | The input function "sqr_dist_fun" must return the SQUARED distance
   | between the query point and a given object in the tree.
   |
   | Reference:
   | ----------
-  | Hjaltason and Samet: Distance browsing in spatial database,
-  | ACM Transactions on Database Systems (TODS) 24.2 (1999): 265-318
+  | - Roussopoulos, Nick, Stephen Kelley, and Frederic Vincent: 
+  |   Nearest neighbor queries, Proceedings of the 1995 ACM SIGMOD 
+  |   international conference on Management of data, 1995 
+  | 
+  | - Hjaltason and Samet: Distance browsing in spatial database,
+  |   ACM Transactions on Database Systems (TODS) 24.2 (1999): 265-318
+  |
   ------------------------------------------------------------------*/
-  KNearestList nearest(const VecND<CoordType,Dim> pos, 
-                       const DistanceFunction& sqr_dist_fun, 
-                       std::size_t k) const
+  template <typename QueryObject = VecND<CoordType,Dim>>
+  KNearestList nearest(const QueryObject& query, 
+                       std::size_t k,
+                       const ObjectDistFunction& object_dist_fun, 
+                       const BBoxDistFunction<QueryObject>& bbox_dist_fun = 
+                       [](const QueryObject& p, const BBox& b)
+                       { return b.point_dist_sqr(p); }) const
   {
     KNearestList nearest_list { k };
 
-    k_nearest_traversal(nearest_list, pos, *root_, sqr_dist_fun);
+    k_nearest_traversal(nearest_list, query, *root_, 
+                        object_dist_fun, bbox_dist_fun);
 
     return std::move( nearest_list );
 
@@ -1411,10 +1436,14 @@ public:
   /*------------------------------------------------------------------ 
   | Query the nearest entry to a given input position
   ------------------------------------------------------------------*/
-  const ObjectType* nearest(const VecND<CoordType,Dim> pos, 
-                            const DistanceFunction& sqr_dist_fun) const
+  template <typename QueryObject = VecND<CoordType,Dim>>
+  const ObjectType* nearest(const QueryObject& query, 
+                            const ObjectDistFunction& object_dist_fun, 
+                            const BBoxDistFunction<QueryObject>& bbox_dist_fun = 
+                            [](const QueryObject& p, const BBox& b)
+                            { return b.point_dist_sqr(p); }) const
   {
-    auto list = nearest(pos, sqr_dist_fun, 1);
+    auto list = nearest(query, 1, object_dist_fun, bbox_dist_fun);
     return *list.begin();
 
   } // RTreeND::nearest()
@@ -1539,10 +1568,12 @@ private:
   | Traverse the tree to find k-nearest neighbors to a given 
   | query point in the tree
   ------------------------------------------------------------------*/
+  template <typename QueryObject = VecND<CoordType,Dim>>
   void k_nearest_traversal(KNearestList& nearest_list,
-                           const VecND<CoordType,Dim> pos,
+                           const QueryObject& query,
                            const Node& node,
-                           const DistanceFunction& sqr_dist_fun) const
+                           const ObjectDistFunction& object_dist_fun,
+                           const BBoxDistFunction<QueryObject>& bbox_dist_fun) const 
   {
     // Obtain the k nearest neighbors among all objects of 
     // this leaf node
@@ -1550,7 +1581,7 @@ private:
     {
       for (std::size_t i = 0; i < node.n_entries(); ++i)
       {
-        CoordType dist_sqr = sqr_dist_fun(pos, node.object(i));
+        CoordType dist_sqr = object_dist_fun(query, node.object(i));
 
         if ( dist_sqr < nearest_list.max_dist_sqr() )
           nearest_list.insert( node.object(i), dist_sqr );
@@ -1564,23 +1595,23 @@ private:
       std::iota(index.begin(), index.end(), 0);
 
       std::stable_sort(index.begin(), index.end(),
-        [&node, &pos](size_t i1, size_t i2)
+        [&node, &query, &bbox_dist_fun](size_t i1, size_t i2)
       {
-        CoordType d1 = node.bbox(i1).point_dist_sqr( pos );
-        CoordType d2 = node.bbox(i2).point_dist_sqr( pos );
+        CoordType d1 = bbox_dist_fun(query, node.bbox(i1));
+        CoordType d2 = bbox_dist_fun(query, node.bbox(i2));
         return d1 < d2;
       });
 
       // Recursively call this function on children
       for ( std::size_t i = 0; i < node.n_entries(); ++i )
       {
-        CoordType dist_sqr = node.bbox(index[i]).point_dist_sqr(pos);
+        CoordType dist_sqr = bbox_dist_fun(query, node.bbox(index[i]));
 
         if ( dist_sqr >= nearest_list.max_dist_sqr() )
           break;
         
-        k_nearest_traversal(nearest_list, pos, 
-                            node.child(index[i]), sqr_dist_fun);
+        k_nearest_traversal(nearest_list, query, node.child(index[i]), 
+                            object_dist_fun, bbox_dist_fun);
       }
     }
 
@@ -1678,48 +1709,59 @@ private:
     if ( node.is_leaf() )
       return node;
 
-    CoordType max_enlarge = std::numeric_limits<CoordType>::max();
 
-    std::size_t j = 0;
+    // Compute the enlargements of all elements 
+    std::vector<CoordType> enlargements ( node.n_entries() );
+    std::vector<CoordType> covers ( node.n_entries() );
+    std::size_t cur_id = 0;
 
-    CoordType cover_j = node.bbox(j).bbox_cover(object_bbox).scale();
-
-    // Find the child-node that has the least enlargement with the 
-    // object's bbox
-    for ( std::size_t i = 0; i < node.n_entries(); ++i )
+    std::transform(node.entries().cbegin(), 
+                   node.entries().cbegin() + node.n_entries(),
+                   enlargements.begin(), 
+    [&object_bbox, &covers, &cur_id](const Entry& cur_entry)
     {
-      const BBox& child_bbox = node.bbox(i);
+      const BBox& cur_bbox      = cur_entry.bbox();
+      const CoordType cur_union = cur_bbox.bbox_union(object_bbox);
+      const CoordType cur_cover = cur_bbox.bbox_cover(object_bbox).scale();
+      covers[cur_id]            = cur_cover;
+      ++cur_id;
+      return cur_cover - cur_union;
+    });
 
-      // Compute enlargement
-      const CoordType union_i = child_bbox.bbox_union(object_bbox);
-      const CoordType cover_i 
-        = node.bbox(i).bbox_cover(object_bbox).scale();
 
-      const CoordType enlarge = cover_i - union_i;
+    // Choose the entry, that needs the least enlargement to 
+    // include the object's bbox
+    // In case of ties, use the entry with the smalles size
+    CoordType max_enlarge = std::numeric_limits<CoordType>::max();
+    CoordType winner_cover = node.bbox(0).bbox_cover(object_bbox).scale();
+    std::size_t winner_id = 0;
+    cur_id = 0;
 
-      // Choose the entry, that needs the least enlargement to 
-      // include the object's bbox
-      // In case of ties, use the entry with the smalles size
-      if ( ( enlarge < max_enlarge ) ||
-           ( EQ(enlarge, max_enlarge) && cover_i < cover_j ) )
+    std::for_each(enlargements.begin(), enlargements.end(), 
+    [&covers, &max_enlarge, &winner_cover, &winner_id, &cur_id]
+    (const CoordType& e)
+    {
+      if ( ( e < max_enlarge ) ||
+           ( EQ(e, max_enlarge) && covers[cur_id] < winner_cover ) )
       {
-        max_enlarge = enlarge;
-        j = i;
-        cover_j = cover_i;
+        max_enlarge  = e;
+        winner_id    = cur_id;
+        winner_cover = covers[cur_id];
       }
-    }
+      ++cur_id;
+    });
+
 
     // In case that the found child is full, split it in two
     // nodes & and run search for leaf in this layer again
-    if ( node.child(j).n_entries() == M )
+    if ( node.child(winner_id).n_entries() == M )
     {
-      split_node( node.child(j) );
-      //split_child(node, j);
+      split_node( node.child(winner_id) );
 
       return choose_leaf_insertion( node, object_bbox );
     }
 
-    return choose_leaf_insertion( node.child(j), object_bbox );
+    return choose_leaf_insertion( node.child(winner_id), object_bbox );
 
   } // RTreeND::choose_leaf_insertion()
 
@@ -1893,7 +1935,7 @@ private:
     std::vector<BBox> obj_bboxes {};
 
     for (auto& cur_node : eliminated)
-      (*cur_node).collect_entries(objects, obj_bboxes);
+      (*cur_node).collect_entry_bboxes(objects, obj_bboxes);
 
     // Re-insert remaining entries in tree
     for ( std::size_t i = 0; i < objects.size(); ++i )

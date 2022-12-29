@@ -383,14 +383,14 @@ void nearest_neighbor()
   for (std::size_t i = 0; i < edges.size(); ++i)
     tree.insert( edges[i], edges[i].bbox() );
 
-  RTreeND<Edge,4,double,2>::DistanceFunction 
+  RTreeND<Edge,4,double,2>::ObjectDistFunction 
   dist_fun = [](const VecND<double,2> p, const Edge& e)
   { return e.dist_sqr( p ); };
 
   VecND<double,2> query_point {-1.0,-1.0};
 
   // k-nearest neighbor search
-  auto neighbors = tree.nearest( query_point, dist_fun, 4 );
+  auto neighbors = tree.nearest( query_point, 4, dist_fun );
 
   // nearest-neigbhor search
   const Edge* nearest = tree.nearest( query_point, dist_fun );
