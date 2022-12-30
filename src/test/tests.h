@@ -32,5 +32,6 @@ void run_tests_BTree();
 void run_tests_VecND();
 void run_tests_BBoxND();
 void run_tests_RTreeND();
+void run_tests_OcTreeND();
 
 

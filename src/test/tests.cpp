@@ -109,6 +109,11 @@ int run_tests(const std::string& library)
     LOG(INFO) << "  Running tests for \"RTreeND\" library...";
     run_tests_RTreeND();
   }
+  else if ( !library.compare("OcTreeND") )
+  {
+    LOG(INFO) << "  Running tests for \"OcTreeND\" library...";
+    run_tests_OcTreeND();
+  }
   else
   {
     LOG(INFO) << "";

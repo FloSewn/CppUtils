@@ -86,7 +86,7 @@ public:
     for (std::size_t i=0; i < nv; ++i)
     {
       // Create a bitset to access all bbox vertices, 
-      // e.g. for N==2: { (0,0), (0,1), (1,0), (1,1) }
+      // e.g. for N==2: { (0,0), (0,1), (1,1), (1,0) }
       std::bitset<N> bits = std::bitset<N>((i>>1) ^ i);
 
       // Fill bitset into a Vec
