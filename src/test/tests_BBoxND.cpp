@@ -94,6 +94,7 @@ void intersection()
   BBoxND<int, 2> a1_d2 { {1,1}, {4,4} };
   BBoxND<int, 2> b1_d2 { {4,1}, {6,4} };
   BBoxND<int, 2> b2_d2 { {3,3}, {8,6} };
+  BBoxND<int, 2> b3_d2 { {5,1}, {9,5} };
   VecND<int, 2>  p1_d2 { 5, 2 };
   VecND<int, 2>  p2_d2 { 4, 2 };
   VecND<int, 2>  p3_d2 { 3, 2 };
@@ -108,6 +109,17 @@ void intersection()
   CHECK( a1_d2.bbox_intersect(b2_d2) ); 
   CHECK( a1_d2.bbox_intersection(b2_d2) == 1 ); 
   CHECK( !a1_d2.bbox_touch(b2_d2) ); 
+
+  // check intersection between fully overlapping boxes 
+  CHECK( a1_d2.bbox_intersect(a1_d2) );
+  CHECK( a1_d2.bbox_intersect_touch(a1_d2) );
+  CHECK( a1_d2.bbox_intersection(a1_d2) == 9 );
+
+  // Check boxes that do not intersect at all
+  CHECK( !a1_d2.bbox_intersect(b3_d2) ); 
+  CHECK( !a1_d2.bbox_intersect_touch(b3_d2) ); 
+  CHECK( !a1_d2.bbox_touch(b3_d2) ); 
+  CHECK( a1_d2.bbox_intersection(b3_d2) == 0 ); 
 
   // Points
   CHECK( !a1_d2.point_inside( p1_d2 ) );

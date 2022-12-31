@@ -298,6 +298,19 @@ public:
   }
 
   /*------------------------------------------------------------------ 
+  | Check if this BBoxND intersects with a sphere / circle
+  | 
+  | Reference:
+  | ----------
+  | https://stackoverflow.com/questions/401847/circle-rectangle-\
+  | collision-detection-intersection
+  ------------------------------------------------------------------*/
+  bool sphere_intersect(Vec center, T radius)
+  {
+
+  }
+
+  /*------------------------------------------------------------------ 
   | Compute the squared distance from a given point to the BBoxND
   | 
   | Reference:

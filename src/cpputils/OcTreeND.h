@@ -89,6 +89,7 @@ public:
   using Node_ptr     = std::unique_ptr<Node>;
   using Entries      = std::list<Entry>;
   using Children     = std::array<Node_ptr, (1<<Dim)>;
+  using EntryVector  = std::vector<Entry>;
 
   /*------------------------------------------------------------------ 
   | Constructor
@@ -181,6 +182,37 @@ public:
 
     return *children_[i];
   }
+
+  /*------------------------------------------------------------------ 
+  | Get all items
+  ------------------------------------------------------------------*/
+  void query(const BBox& bbox, EntryVector& found_objects) const
+  {
+    // Skip empty leaf nodes
+    if ( !is_split() && n_entries() < 1 )
+      return;
+
+    // Skip if node does not overlap with query bbox
+    if ( !bbox_.bbox_intersect_touch( bbox ) )
+      return;
+
+    // Query child nodes
+    if ( is_split() )
+    {
+      for ( auto& child : children_ )
+        (*child).query(bbox, found_objects);
+
+      return;
+    }
+
+    // Check for objects in this node
+    for ( auto& entry : entries_ )
+      if ( bbox.point_inside_touch( entry.position ) )
+        found_objects.push_back( entry );
+
+    return;
+    
+  } // query()
 
   /*------------------------------------------------------------------ 
   | Function used to estimate the tree height
@@ -453,12 +485,18 @@ private:
 template<OCTREE_DEF>
 class OcTreeND
 {
+  friend OcTreeNodeND<OCTREE_ARG>;
+
 public:
-  using BBox     = BBoxND<CoordType,Dim>;
-  using Vec      = VecND<CoordType,Dim>;
-  using Node     = OcTreeNodeND<OCTREE_ARG>;
-  using Node_ptr = std::unique_ptr<Node>;
-  using NodeMap  = std::map<std::string,Node*>;
+
+  using BBox        = BBoxND<CoordType,Dim>;
+  using Vec         = VecND<CoordType,Dim>;
+  using Node        = OcTreeNodeND<OCTREE_ARG>;
+  using Node_ptr    = std::unique_ptr<Node>;
+  using NodeMap     = std::map<std::string,Node*>;
+
+  using Entry       = typename Node::Entry;
+  using EntryVector = std::vector<Entry>;
 
   static inline CoordType minimum_scale 
     = std::numeric_limits<CoordType>::epsilon();
@@ -483,7 +521,7 @@ public:
     {
       auto  iter  = curve.begin();
       Node* start = iter->second;
-      while ( iter != curve.end() && (*start).n_entries() < 1 )
+      while ( iter != curve.end() && (*start).is_split() )
       {
         ++iter; 
         start = iter->second;
@@ -512,7 +550,7 @@ public:
         else
           cur_node_ = iter->second;
 
-      } while( cur_node_ && (*cur_node_).n_entries() < 1 );
+      } while( cur_node_ && (*cur_node_).is_split() );
 
       return *this;
     }
@@ -553,7 +591,7 @@ public:
     {
       auto  iter  = curve.begin();
       Node* start = iter->second;
-      while ( iter != curve.end() && (*start).n_entries() < 1 )
+      while ( iter != curve.end() && (*start).is_split() )
       {
         ++iter; 
         start = iter->second;
@@ -582,7 +620,7 @@ public:
         else
           cur_node_ = iter->second;
 
-      } while( cur_node_ && (*cur_node_).n_entries() < 1 );
+      } while( cur_node_ && (*cur_node_).is_split() );
 
       return *this;
     }
@@ -630,6 +668,18 @@ public:
   const NodeMap& curve() const { return curve_; }
 
   /*------------------------------------------------------------------ 
+  | Query for objects inside a given bounding box
+  ------------------------------------------------------------------*/
+  EntryVector query(const BBox& bbox) const
+  {
+    EntryVector output {};
+
+    (*root_).query( bbox, output );
+
+    return std::move( output );
+  }
+
+  /*------------------------------------------------------------------ 
   | Insert element to OcTreeND
   ------------------------------------------------------------------*/
   bool insert(const ObjectType& object, const Vec& obj_pos)
@@ -647,6 +697,7 @@ public:
   std::size_t height() const 
   { return (*root_).tree_height(); }
 
+protected:
   /*------------------------------------------------------------------ 
   | Add a new node to the space-filling curve of the tree
   ------------------------------------------------------------------*/

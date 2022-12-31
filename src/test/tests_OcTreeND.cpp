@@ -29,28 +29,10 @@ namespace OcTreeNDTests
 using namespace CppUtils;
 
 /*--------------------------------------------------------------------
-| Test constructor
+| Test 2d octree
 --------------------------------------------------------------------*/
-void constructor()
+void test_2d()
 {
-  /*
-  OcTreeND<int, 1, int, 1> tree { {-100,100} };
-
-  std::vector<int> values {};
-
-  values.push_back( 1 );
-  values.push_back( 2 );
-  values.push_back( 3 );
-  values.push_back( 4 );
-  values.push_back( 5 );
-  values.push_back( 6 );
-
-  for ( auto& v : values )
-    tree.insert( v, {v} );
-
-  */
-
-
   OcTreeND<int, 1, double, 2> tree { {{-10.0,-10.0}, {10.0,10.0}} };
 
   int value = 1;
@@ -64,12 +46,15 @@ void constructor()
   positions.push_back( {-4.0, -4.0} );
   positions.push_back( {-5.0, -5.0} );
 
+  // Insertion
   for ( auto& pos : positions )
     CHECK( tree.insert( value, pos ) );
 
+
+  // Iterator
   for ( auto& it : tree )
   {
-    LOG(INFO) << it.curve_id() << " => " << it.bbox();
+    LOG(INFO) << it.curve_id() << " => " << it.center();
 
     for ( auto& e : it.entries() )
       LOG(INFO) << "  -> " << e.position;
@@ -78,6 +63,19 @@ void constructor()
       LOG(INFO) << "  -> HAS NO ENTRIES";
   }
 
+  // Query
+  auto query = tree.query( { {0.0,0.0},{2.0,2.0} } );
+
+  CHECK( query.size() == 3 );
+  for ( auto& q : query )
+  {
+    CHECK(  (q.position == positions[0]) 
+         || (q.position == positions[1]) 
+         || (q.position == positions[2]) );
+    LOG(INFO) << "Query: " << q.position;
+  }
+
+  // Removal
   for ( auto& pos : positions )
     CHECK( tree.remove( value, pos ) );
 
@@ -85,13 +83,13 @@ void constructor()
   std::string source_dir { CPPUTILSCONFIG__SOURCE_DIR };
 
   std::string file_name 
-  { source_dir + "/auxiliary/test_data/OcTree_constructor" };
+  { source_dir + "/auxiliary/test_data/OcTree_2d" };
 
   OcTreeNDWriter writer { tree };
 
   writer.write_to_vtu( file_name );
 
-} // constructor() 
+} // test_2d() 
 
 /*--------------------------------------------------------------------
 | Test 3D octree
@@ -133,7 +131,7 @@ void test_3d()
 *********************************************************************/
 void run_tests_OcTreeND()
 {
-  OcTreeNDTests::constructor();
+  OcTreeNDTests::test_2d();
   OcTreeNDTests::test_3d();
 
 } // run_tests_OcTreeND()
