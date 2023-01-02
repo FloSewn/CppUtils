@@ -75,7 +75,7 @@ static inline bool nearest_edge_fun(T* edge,
   const Vec2<V>& xy_1 = v1.xy();
   const Vec2<V>& xy_2 = v2.xy();
 
-  const V d_sqr = vertex_edge_dist_sqr(query, xy_1, xy_2);
+  const V d_sqr = distance_point_edge_sqr(query, xy_1, xy_2);
 
   if (d_sqr < min_dist_sqr)
   {

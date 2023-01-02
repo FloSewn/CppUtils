@@ -1043,6 +1043,24 @@ void in_quad()
 
 } // in_quad()
 
+
+/*********************************************************************
+* Test distance_point_edge_sqr()
+*********************************************************************/
+void distance_point_edge_sqr()
+{
+
+  Vec2d p  = {2.0, 2.0};
+  Vec2d e1 = {1.0, 1.0};
+  Vec2d e2 = {1.0, 4.0};
+
+  CHECK( EQ(distance_point_edge_sqr(p, e1, e2), 1.0) );
+  CHECK( EQ(distance_point_edge_sqr(e1, e1, e2), 0.0) );
+  CHECK( EQ(distance_point_edge_sqr({1.0,0.0}, e1, e2), 1.0) );
+  CHECK( EQ(distance_point_edge_sqr({0.0,0.0}, e1, e2), 2.0) );
+
+} // distance_point_edge_sqr()
+
 } // namespace GeometryTests
 
 
@@ -1069,5 +1087,6 @@ void run_tests_Geometry()
   GeometryTests::in_triangle();
   GeometryTests::in_on_quad();
   GeometryTests::in_quad();
+  GeometryTests::distance_point_edge_sqr();
 
 } // run_tests_Geometry()

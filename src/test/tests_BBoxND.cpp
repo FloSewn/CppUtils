@@ -135,6 +135,16 @@ void intersection()
   CHECK(  !a1_d2.point_touch( p3_d2 ) );
 
 
+  // Circle
+  CHECK( a1_d2.sphere_intersect( {2,2}, 2 ) );
+  CHECK( a1_d2.sphere_intersect( {2,2}, 1 ) );
+
+  CHECK( !a1_d2.sphere_intersect( {6,6}, 1 ) );
+
+  // Does not intersect, if circle touches bbox!
+  CHECK( !a1_d2.sphere_intersect( {6,6}, 2 ) );
+
+
 
   // d = 3 
   BBoxND<float, 3> a1_d3 { {1.0f,1.0f,1.0f}, {4.0f,4.0f,4.0f} };

@@ -1,6 +1,7 @@
 set( BENCHMARKS BenchmarkCppUtils )
 
 add_executable( ${BENCHMARKS}
+  benchmarks_OcTreeND.cpp
   benchmarks_RTreeND.cpp
   benchmarks_Container.cpp
   benchmarks_QuadTree.cpp

@@ -55,7 +55,7 @@ public:
   Vec& v2() { return v2_; }
 
   double dist_sqr(const Vec& p) const
-  { return vertex_edge_dist_sqr(p, v1_, v2_); }  
+  { return distance_point_edge_sqr(p, v1_, v2_); }  
 
   double dist(const Vec& p) const
   { return sqrt( this->dist_sqr(p) ); }

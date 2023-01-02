@@ -22,6 +22,8 @@
 namespace CppUtils {
 
 
+
+
 /*********************************************************************
 * This class defines axis aligned boxes, which can be used for 
 * algorithms requiring minimum bounded rectangles / bounding boxes
@@ -307,7 +309,14 @@ public:
   ------------------------------------------------------------------*/
   bool sphere_intersect(Vec center, T radius)
   {
+    Vec closest;
 
+    for ( std::size_t i = 0; i < N; ++i )
+      closest[i] = std::clamp( center[i], lowleft_[i], upright_[i] );
+
+    Vec delta = center - closest; 
+
+    return delta.norm_sqr() < radius * radius;
   }
 
   /*------------------------------------------------------------------ 

@@ -56,6 +56,11 @@ int run_benchmarks(const std::string& library)
     LOG(INFO) << "  Running benchmarks for \"RTreeND\" library...";
     run_benchmarks_RTreeND();
   }
+  else if ( !library.compare("OcTreeND") )
+  {
+    LOG(INFO) << "  Running benchmarks for \"OcTreeND\" library...";
+    run_benchmarks_OcTreeND();
+  }
   else
   {
     LOG(INFO) << "";

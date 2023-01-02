@@ -184,7 +184,7 @@ public:
   }
 
   /*------------------------------------------------------------------ 
-  | Get all items
+  | Get all items inside a given bounding box
   ------------------------------------------------------------------*/
   void query(const BBox& bbox, EntryVector& found_objects) const
   {
@@ -212,6 +212,36 @@ public:
 
     return;
     
+  } // query()
+
+  /*------------------------------------------------------------------ 
+  | Get all items inside a sphere / circle of given center and radius
+  ------------------------------------------------------------------*/
+  void query(const Vec& center, CoordType radius, 
+             EntryVector& found_objects) const
+  {
+    // Skip empty leaf nodes
+    if ( !is_split() && n_entries() < 1 )
+      return;
+
+    // Skip if node does not overlap with query bbox
+    if ( !bbox_.sphere_intersect( center, radius ) )
+      return;
+
+    // Query child nodes
+    if ( is_split() )
+    {
+      for ( auto& child : children_ )
+        (*child).query(center, radius, found_objects);
+
+      return;
+    }
+
+    // Check for objects in this node
+    for ( auto& entry : entries_ )
+      if ( bbox.point_inside_touch( entry.position ) )
+        found_objects.push_back( entry );
+
   } // query()
 
   /*------------------------------------------------------------------ 
@@ -675,6 +705,18 @@ public:
     EntryVector output {};
 
     (*root_).query( bbox, output );
+
+    return std::move( output );
+  }
+
+  /*------------------------------------------------------------------ 
+  | Query for objects inside a given sphere
+  ------------------------------------------------------------------*/
+  EntryVector query(const Vec& center, CoordType radius) const
+  {
+    EntryVector output {};
+
+    (*root_).query( center, radius );
 
     return std::move( output );
   }
