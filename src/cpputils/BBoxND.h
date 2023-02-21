@@ -17,7 +17,6 @@
 #include "VecND.h"
 #include "MathUtility.h"
 #include "Helpers.h"
-#include "Log.h"
 
 namespace CppUtils {
 
@@ -376,4 +375,4 @@ std::ostream& operator<<(std::ostream& os,
 }
 
 
-}; // namespace CppUtils
+} // namespace CppUtils
