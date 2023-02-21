@@ -21,7 +21,6 @@
 #include "BBoxND.h"
 #include "MathUtility.h"
 #include "Helpers.h"
-#include "Log.h"
 #include "VtkIO.h"
 
 namespace CppUtils {
@@ -1103,14 +1102,13 @@ public:
   /*------------------------------------------------------------------ 
   | 
   ------------------------------------------------------------------*/
+  template <typename QueryObject = VecND<CoordType,Dim>>
   using ObjectDistFunction 
-    = std::function<CoordType(const VecND<CoordType, Dim>& query, 
-                              const ObjectType& obj)>;
+    = CoordType (*)(const QueryObject&, const ObjectType&);
 
   template <typename QueryObject = VecND<CoordType,Dim>>
   using BBoxDistFunction
-    = std::function<CoordType(const QueryObject& query, 
-                              const BBox& bbox)>;
+    = CoordType (*)(const QueryObject&, const BBox&);
 
   /*------------------------------------------------------------------ 
   | Iterator implementation
@@ -1246,6 +1244,15 @@ public:
   ConstantIterator cend() const 
   { return ConstantIterator(); }
 
+
+  /*------------------------------------------------------------------ 
+  | A container for the nearest neighbor query 
+  ------------------------------------------------------------------*/
+  struct NearestNeighbor
+  {
+    const ObjectType* object_ptr {nullptr};
+    CoordType         dist_sqr   {std::numeric_limits<CoordType>::max()};
+  }; 
 
   /*------------------------------------------------------------------ 
   | A sub-class that is returned after the Query for k nearst 
@@ -1419,7 +1426,7 @@ public:
   template <typename QueryObject = VecND<CoordType,Dim>>
   KNearestList nearest(const QueryObject& query, 
                        std::size_t k,
-                       const ObjectDistFunction& object_dist_fun, 
+                       const ObjectDistFunction<QueryObject>& object_dist_fun, 
                        const BBoxDistFunction<QueryObject>& bbox_dist_fun = 
                        [](const QueryObject& p, const BBox& b)
                        { return b.point_dist_sqr(p); }) const
@@ -1437,14 +1444,18 @@ public:
   | Query the nearest entry to a given input position
   ------------------------------------------------------------------*/
   template <typename QueryObject = VecND<CoordType,Dim>>
-  const ObjectType* nearest(const QueryObject& query, 
-                            const ObjectDistFunction& object_dist_fun, 
-                            const BBoxDistFunction<QueryObject>& bbox_dist_fun = 
-                            [](const QueryObject& p, const BBox& b)
-                            { return b.point_dist_sqr(p); }) const
+  NearestNeighbor nearest(const QueryObject& query, 
+                          const ObjectDistFunction<QueryObject>& object_dist_fun, 
+                          const BBoxDistFunction<QueryObject>& bbox_dist_fun = 
+                          [](const QueryObject& p, const BBox& b)
+                          { return b.point_dist_sqr(p); }) const
   {
-    auto list = nearest(query, 1, object_dist_fun, bbox_dist_fun);
-    return *list.begin();
+    NearestNeighbor nearest_neighbor {};
+    
+    nearest_traversal(nearest_neighbor, query, *root_,
+                      object_dist_fun, bbox_dist_fun);
+
+    return std::move(nearest_neighbor); 
 
   } // RTreeND::nearest()
 
@@ -1565,6 +1576,64 @@ public:
 private:
 
   /*------------------------------------------------------------------ 
+  | Traverse the tree to find the single nearest neighbor to a given 
+  | query point in the tree
+  ------------------------------------------------------------------*/
+  template <typename QueryObject = VecND<CoordType,Dim>>
+  void nearest_traversal(NearestNeighbor& nearest_neighbor,
+                         const QueryObject& query,
+                         const Node& node,
+                         const ObjectDistFunction<QueryObject>& object_dist_fun,
+                         const BBoxDistFunction<QueryObject>& bbox_dist_fun) const 
+  {
+    // Obtain the k nearest neighbors among all objects of 
+    // this leaf node
+    if ( node.is_leaf() )
+    {
+      std::vector<CoordType> dists_sqr (node.n_entries(), {});
+
+      for (std::size_t i = 0; i < node.n_entries(); ++i)
+        dists_sqr[i] = object_dist_fun(query, node.object(i));
+
+      std::size_t winner = std::distance(
+        std::begin(dists_sqr), 
+        std::min_element(std::begin(dists_sqr), std::end(dists_sqr))
+      );
+
+      nearest_neighbor.object_ptr = &node.object(winner);
+      nearest_neighbor.dist_sqr = dists_sqr[winner];
+    }
+    else
+    {
+      // Sort entries of current node in ascending order by their 
+      // distance to query position
+      std::vector<size_t> index( node.n_entries() );
+      std::iota(index.begin(), index.end(), 0);
+
+      std::stable_sort(index.begin(), index.end(),
+        [&node, &query, &bbox_dist_fun](size_t i1, size_t i2)
+      {
+        CoordType d1 = bbox_dist_fun(query, node.bbox(i1));
+        CoordType d2 = bbox_dist_fun(query, node.bbox(i2));
+        return d1 < d2;
+      });
+
+      // Recursively call this function on children
+      for ( std::size_t i = 0; i < node.n_entries(); ++i )
+      {
+        CoordType dist_sqr = bbox_dist_fun(query, node.bbox(index[i]));
+
+        if ( dist_sqr >= nearest_neighbor.dist_sqr )
+          break;
+        
+        nearest_traversal(nearest_neighbor, query, node.child(index[i]), 
+                          object_dist_fun, bbox_dist_fun);
+      }
+    }
+
+  } // nearest_traversal()
+
+  /*------------------------------------------------------------------ 
   | Traverse the tree to find k-nearest neighbors to a given 
   | query point in the tree
   ------------------------------------------------------------------*/
@@ -1572,7 +1641,7 @@ private:
   void k_nearest_traversal(KNearestList& nearest_list,
                            const QueryObject& query,
                            const Node& node,
-                           const ObjectDistFunction& object_dist_fun,
+                           const ObjectDistFunction<QueryObject>& object_dist_fun,
                            const BBoxDistFunction<QueryObject>& bbox_dist_fun) const 
   {
     // Obtain the k nearest neighbors among all objects of 

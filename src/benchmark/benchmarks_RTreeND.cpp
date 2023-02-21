@@ -101,6 +101,8 @@ void benchmark(std::size_t n_samples,
                bool bulk_insertion=false,
                bool brute_force=false)
 {
+  using RTree    = RTreeND<Vertex2d,TREE_M,double,2>;
+
   /*------------------------------------------------------------------
   | Initialize 
   ------------------------------------------------------------------*/
@@ -109,7 +111,7 @@ void benchmark(std::size_t n_samples,
   std::vector<Vertex2d> query_points;
   Timer timer {};
   SpiralFunction fun( 2.5, -3.4, 6.5);
-  RTreeND<Vertex2d,TREE_M,double,2> tree {};
+  RTree tree {};
 
   constexpr double t0 =  0.0;
   constexpr double t1 =  5.0 * M_PI;
@@ -201,9 +203,9 @@ void benchmark(std::size_t n_samples,
 
   /*------------------------------------------------------------------
   | Query data points
-  ------------------------------------------------------------------*/
-  typename RTreeND<Vertex2d,TREE_M,double,2>::ObjectDistFunction 
-  sqr_dist_fun = [](const VecND<double,2> p, const Vertex2d& v)
+  ------------------------------------------------------------------*
+  RTree::ObjectDistFunction<Vec2d>
+  sqr_dist_fun = [](const Vec2d& p, const Vertex2d& v)
   { return (v.pos()-p).norm_sqr(); };
 
   timer.count("RTreeND nearest query");
@@ -211,7 +213,11 @@ void benchmark(std::size_t n_samples,
   std::vector<const Vertex2d*> winners_rtree {};
 
   for ( auto& q : query_points )
-    winners_rtree.push_back( tree.nearest( q.pos(), sqr_dist_fun ) );
+  {
+    auto neighbor = tree.nearest<Vec2d>( q.pos(), sqr_dist_fun );
+    winners_rtree.push_back( neighbor.object_ptr );
+  }
+  */
 
 
   if ( brute_force )
@@ -238,23 +244,22 @@ void benchmark(std::size_t n_samples,
 
       winners_bf.push_back( &vertices[i_winner] );
 
-      /*
-      std::vector<size_t> ids( vertices.size() );
-      std::iota(ids.begin(), ids.end(), 0);
+      // std::vector<size_t> ids( vertices.size() );
+      // std::iota(ids.begin(), ids.end(), 0);
 
-      std::stable_sort(ids.begin(), ids.end(),
-        [&vertices, &q](size_t i1, size_t i2)
-      {
-        double d1 = (vertices[i1].pos() - q.pos()).norm_sqr();
-        double d2 = (vertices[i2].pos() - q.pos()).norm_sqr();
-        return d1 < d2;
-      });
+      // std::stable_sort(ids.begin(), ids.end(),
+      //   [&vertices, &q](size_t i1, size_t i2)
+      // {
+      //   double d1 = (vertices[i1].pos() - q.pos()).norm_sqr();
+      //   double d2 = (vertices[i2].pos() - q.pos()).norm_sqr();
+      //   return d1 < d2;
+      // });
 
-      winners_bf.push_back( &vertices[ids[0]] );
-      */
+      // winners_bf.push_back( &vertices[ids[0]] );
     }
 
 
+    /*
     timer.count("Check for nearest query");
     for (std::size_t i = 0; i < query_points.size(); ++i)
     {
@@ -262,6 +267,7 @@ void benchmark(std::size_t n_samples,
       ASSERT( winners_bf[i] != nullptr, "ERROR_2");
       ASSERT( winners_rtree[i]->pos() == winners_bf[i]->pos(), "ERROR_3");
     }
+    */
   }
 
   /*------------------------------------------------------------------

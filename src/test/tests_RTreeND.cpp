@@ -383,17 +383,17 @@ void nearest_neighbor()
   for (std::size_t i = 0; i < edges.size(); ++i)
     tree.insert( edges[i], edges[i].bbox() );
 
-  RTreeND<Edge,4,double,2>::ObjectDistFunction 
-  dist_fun = [](const VecND<double,2> p, const Edge& e)
+  RTreeND<Edge,4,double,2>::ObjectDistFunction<VecND<double,2>>
+  dist_fun = [](const VecND<double,2>& p, const Edge& e)
   { return e.dist_sqr( p ); };
 
   VecND<double,2> query_point {-1.0,-1.0};
 
   // k-nearest neighbor search
-  auto neighbors = tree.nearest( query_point, 4, dist_fun );
+  auto neighbors = tree.nearest<VecND<double,2>>( query_point, 4, dist_fun );
 
   // nearest-neigbhor search
-  const Edge* nearest = tree.nearest( query_point, dist_fun );
+  auto neighbor = tree.nearest<VecND<double,2>>( query_point, dist_fun );
 
   // Compute distance and sort  
   std::vector<size_t> ids( edges.size() );
@@ -411,8 +411,8 @@ void nearest_neighbor()
   auto nbr_it   = neighbors.values().begin();
   auto dist_it  = neighbors.squared_distances().begin();
 
-  CHECK( nearest != nullptr );
-  CHECK( nearest == &edges[ids[0]] );
+  CHECK( neighbor.object_ptr != nullptr );
+  CHECK( neighbor.object_ptr == &edges[ids[0]] );
 
   for ( ; nbr_it != neighbors.values().end(); ++nbr_it, ++dist_it, ++i )
   {
