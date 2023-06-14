@@ -14,6 +14,9 @@
 #include "Container.h"
 #include "Testing.h"
 
+#include <list>           // std::list
+#include <memory>           // std::list
+
 namespace ContainerTests 
 {
 using namespace CppUtils;
@@ -23,25 +26,20 @@ class Edge;
 /*********************************************************************
 * A simple vertex class that is stored in the Container
 *********************************************************************/
-class Vertex
+class Vertex : public ContainerEntry<Vertex>
 {
 public:
 
-  friend Container<Vertex>;
-  using List = Container<Vertex>::List; 
-  using Iterator = List::iterator;
   using EdgeList = std::list<Edge*>;
 
   /*------------------------------------------------------------------
   | Constructor 
   ------------------------------------------------------------------*/
-  Vertex(double x, double y) : xy_ {x, y} {}
+  Vertex(double x, double y) : ContainerEntry<Vertex>(x,y) {}
 
   /*------------------------------------------------------------------
   | Getters 
   ------------------------------------------------------------------*/
-  const Vec2d xy() const { return xy_; }
-  const Iterator& pos() const { return pos_; }
   const EdgeList& edges() const { return edges_;}
   const Edge& edges(size_t i) const 
   { 
@@ -56,25 +54,12 @@ public:
   void add_edge(Edge* e) { edges_.push_back(e); }
   void remove_edge(Edge* e) { edges_.remove(e); }
 
-  /*------------------------------------------------------------------
-  | Container functions 
-  ------------------------------------------------------------------*/
-  bool in_container() const { return in_container_; }
-
 private:
-  /*------------------------------------------------------------------
-  | Container functions 
-  ------------------------------------------------------------------*/
-  void container_destructor() {}
 
   /*------------------------------------------------------------------
   | Vertex attributes 
   ------------------------------------------------------------------*/
-  Vec2d         xy_;
-  EdgeList      edges_ {};
-
-  Iterator      pos_ {nullptr};
-  bool          in_container_;
+  EdgeList edges_ {};
 
 }; 
 
@@ -82,19 +67,17 @@ private:
 /*********************************************************************
 * A simple edge class that is stored in the Container
 *********************************************************************/
-class Edge
+class Edge : public ContainerEntry<Edge>
 {
 public:
-
-  friend Container<Edge>;
-  using List = Container<Edge>::List;
-  using Iterator = List::iterator;
+  //friend Container<Edge>;
 
   /*------------------------------------------------------------------
   | Constructor 
   ------------------------------------------------------------------*/
   Edge(Vertex& v1, Vertex& v2) 
-  : v1_ {&v1}
+  : ContainerEntry<Edge>(0.5 * (v1.xy() + v2.xy()))
+  , v1_ {&v1}
   , v2_ {&v2}
   {
     ASSERT((&v1_ && &v2_),
@@ -121,9 +104,6 @@ public:
   /*------------------------------------------------------------------
   | Getters 
   ------------------------------------------------------------------*/
-  const Vec2d xy() const { return xy_; }
-  const Iterator& pos() const { return pos_; }
-
   const Vertex& v1() const { return *v1_; };
   const Vertex& v2() const { return *v2_; };
   Vertex& v1() { return *v1_; };
@@ -136,13 +116,7 @@ public:
   /*------------------------------------------------------------------
   | Container functions 
   ------------------------------------------------------------------*/
-  bool in_container() const { return in_container_; }
-
-private:
-  /*------------------------------------------------------------------
-  | Container functions 
-  ------------------------------------------------------------------*/
-  void container_destructor()
+  void container_destructor() override
   { 
     if (v1_) v1_->remove_edge( this );
     if (v2_) v2_->remove_edge( this );
@@ -151,6 +125,8 @@ private:
     v2_ = nullptr;
   }
 
+
+private:
   /*------------------------------------------------------------------
   | Edge attributes 
   ------------------------------------------------------------------*/
@@ -161,10 +137,6 @@ private:
   Vec2d       tang_;
   Vec2d       norm_;
   double      length_;
-
-  Iterator    pos_ {nullptr};
-  bool        in_container_; 
-
 }; 
 
 /*********************************************************************
@@ -382,6 +354,90 @@ void sort()
 
 } // sort()
 
+/*********************************************************************
+* Test inheritance of generic container class
+*********************************************************************/
+// A simple class similar to the container class
+template <typename T>
+class FastList
+{
+public:
+
+  using List = std::list<std::unique_ptr<T>>;
+  using iterator = typename List::iterator;
+  using const_iterator = typename List::const_iterator;
+
+  // constructor()
+  FastList() {}
+
+  // insert()
+  template <typename... Args>
+  T& insert( const_iterator pos, Args&&... args )
+  {
+    std::unique_ptr<T> u_ptr = std::make_unique<T>(args...);
+    T* ptr = u_ptr.get();
+    iterator iter = items_.insert( pos, std::move(u_ptr) );
+    ptr->pos_          = iter;
+    ptr->in_container_ = true;
+    
+    return *ptr;
+  }
+
+  // push_back()
+  template <typename... Args>
+  T& push_back( Args&&... args )
+  { return insert( items_.end(), args... ); }
+
+  // Attributes
+  List items_;
+
+}; 
+
+// The base class from which we will derive classes that are stored
+// in the FastList
+template<typename Derived>
+class FastListEntry
+{
+public:
+  using List = typename FastList<Derived>::List;
+  using Iterator = typename List::iterator;
+
+  FastListEntry(double x, double y) : xy_ {x, y} {}
+
+  const Vec2d xy() const { return xy_; }
+  const Iterator& pos() const { return pos_; }
+  bool in_container() const { return in_container_; }
+
+  Vec2d    xy_            {};
+  Iterator pos_           {};
+  bool     in_container_  {false};
+}; 
+
+// A dummy class that is inherited from FastListEntry
+class InheritedEntry : public FastListEntry<InheritedEntry>
+{
+public:
+
+  InheritedEntry(double x, double y) : FastListEntry<InheritedEntry>(x,y) 
+  {}
+
+}; 
+
+/*********************************************************************
+* The actual test function for the inheritance class
+*********************************************************************/
+void container_entry_inheritance()
+{
+  // Generic Test
+  FastList<InheritedEntry> test_inheritance {};
+
+  auto& t = test_inheritance.push_back( 1.0, 1.0 );
+
+  CHECK( t.in_container_ );
+
+} // container_entry_inheritance()
+
+
 } // namespace ContainerTests
 
 
@@ -395,5 +451,6 @@ void run_tests_Container()
   ContainerTests::remove();
   ContainerTests::vertices_and_edges();
   ContainerTests::sort();
+  ContainerTests::container_entry_inheritance();
 
 } // run_tests_Container()
