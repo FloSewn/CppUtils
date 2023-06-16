@@ -239,6 +239,15 @@ public:
   { return {}; }
 
   /*------------------------------------------------------------------
+  | Angle  
+  ------------------------------------------------------------------*/
+  T angle(const VecND<T,N>& v) const 
+  {
+    const T cos_ang = this->dot(v) / ( this->norm() * v.norm() );
+    return acos( CLAMP( cos_ang ,-1.0, 1.0 ) ); 
+  }
+
+  /*------------------------------------------------------------------
   | Check if vector entries are near zero
   | ulp == units in the last place 
   ------------------------------------------------------------------*/
@@ -264,6 +273,12 @@ public:
     return std::accumulate(cbegin(), cend(), 1.0, 
                            std::multiplies<T>());
   }
+
+  /*------------------------------------------------------------------
+  | Extrema  
+  ------------------------------------------------------------------*/
+  T min() const { return *std::min_element(cbegin(), cend()); }
+  T max() const { return *std::max_element(cbegin(), cend()); }
 
 }; // VecND
 
@@ -457,6 +472,15 @@ typename std::enable_if_t<(NN!=2 && NN!=3), T>
 cross(const VecND<T,N>& a, const VecND<T,N>& b)
 { return {}; }
 
+/*--------------------------------------------------------------------
+| Angle
+--------------------------------------------------------------------*/
+template <typename T, std::size_t N>
+inline T angle(const VecND<T,N>& a, const VecND<T,N>& b)
+{
+  const T cos_ang = dot(a,b) / ( a.norm() * b.norm() );
+  return acos( CLAMP( cos_ang ,-1.0, 1.0 ) ); 
+}
 
 /**********************************************************************
 * Some commont type definitions
@@ -465,14 +489,20 @@ using Vec2i = VecND<int,2>;
 using Vec2d = VecND<double,2>;
 using Vec2f = VecND<float,2>;
 
-using Vec3i = VecND<int,2>;
-using Vec3d = VecND<double,2>;
-using Vec3f = VecND<float,2>;
+using Vec3i = VecND<int,3>;
+using Vec3d = VecND<double,3>;
+using Vec3f = VecND<float,3>;
+
+using Vec4i = VecND<int,4>;
+using Vec4d = VecND<double,4>;
+using Vec4f = VecND<float,4>;
 
 template <typename T>
 using Vec2 = VecND<T,2>;
 template <typename T>
 using Vec3 = VecND<T,3>;
+template <typename T>
+using Vec4 = VecND<T,4>;
 
 
 } // namepsace CppUtils

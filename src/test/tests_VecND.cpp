@@ -13,6 +13,7 @@
 #include "VecND.h"
 #include "Testing.h"
 #include "Log.h"
+#include "MathUtility.h"
 
 namespace VecNDTests 
 {
@@ -128,6 +129,19 @@ static void addition()
   LOG(INFO) << a;
 
   Vec2<int> ai {1,2};
+
+
+
+  Vec3d ang_1 { 0.1, 0.4, 0.7 };
+  Vec3d ang_2 { 0.23, 0.56, 0.89};
+
+  CHECK( ABS(ang_1.angle(ang_2) - 0.1010) < 1.0E-4 );
+  CHECK( ABS(angle(ang_1,ang_2) - 0.1010) < 1.0E-4 );
+
+
+
+  CHECK( EQ(ang_1.min(), 0.1) );
+  CHECK( EQ(ang_1.max(), 0.7) );
 
 } // addition()
 
