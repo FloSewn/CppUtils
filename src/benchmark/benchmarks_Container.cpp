@@ -102,11 +102,12 @@ private:
   /*------------------------------------------------------------------
   | Vertex attributes 
   ------------------------------------------------------------------*/
-  Vec2d         xy_;
-  EdgeList      edges_ {};
+  Vec2d              xy_;
+  EdgeList           edges_ {};
 
-  Iterator      pos_ {nullptr};
-  bool          in_container_;
+  Iterator           pos_ {nullptr};
+  bool               in_container_;
+  Container<Vertex>* container_;
 
 }; 
 
