@@ -102,6 +102,7 @@ public:
   /*------------------------------------------------------------------
   | Get reference to the  container qtreee
   ------------------------------------------------------------------*/
+  QuadTree<T,double>& quad_tree() { return qtree_; }
   const QuadTree<T,double>& quad_tree() const { return qtree_; }
 
   /*------------------------------------------------------------------
@@ -138,6 +139,7 @@ public:
     iterator iter = items_.insert( pos, std::move(u_ptr) );
     ptr->pos_          = iter;
     ptr->in_container_ = true;
+    ptr->container_    = this;
     bool in_qtree = qtree_.add( ptr );
 
     // Failed to add element to qtree -> cleanup
@@ -283,7 +285,7 @@ public:
   void xy(const Vec2d& c) { xy_ = c; }
 
   // Getters
-  const Vec2d xy() const { return xy_; }
+  const Vec2d& xy() const { return xy_; }
   const Iterator& pos() const { return pos_; }
   bool in_container() const { return in_container_; }
 
@@ -291,9 +293,10 @@ public:
   virtual void container_destructor() {}
 
 protected:
-  Vec2d    xy_            {};
-  Iterator pos_           {};
-  bool     in_container_  {false};
+  Vec2d                xy_            {};
+  Iterator             pos_           {};
+  bool                 in_container_  {false};
+  Container<Derived>*  container_     {nullptr};
 
 }; 
 
