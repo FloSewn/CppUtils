@@ -281,7 +281,7 @@ public:
     const CoordType child_scale_sqr = scale_sqr / four_;
 
     bool splitable = child_scale_sqr < scale_sqr;
-    splitable     &= child_scale_sqr > min_scale_;
+    splitable     &= child_scale_sqr > min_scale_ * min_scale_;
     splitable     &= height_ < (bit_size_ / Dim);
 
     if ( splitable && n_total_entries() > M )
