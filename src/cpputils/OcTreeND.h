@@ -58,11 +58,12 @@ class OcTreeND;
 template<OCTREE_DEF>
 class OcTreeNodeND
 {
+
+public:
+
   // Number of bits used to store the tree in a space-filling curve
   static constexpr std::size_t bit_size_ 
   {sizeof(std::size_t) * CHAR_BIT};
-
-public:
 
   /*------------------------------------------------------------------ 
   | Container for node entries
@@ -90,6 +91,7 @@ public:
   using Entries      = std::list<Entry>;
   using Children     = std::array<Node_ptr, (1<<Dim)>;
   using EntryVector  = std::vector<Entry>;
+  using BitSet       = std::bitset<bit_size_>;
 
   /*------------------------------------------------------------------ 
   | Constructor
@@ -110,8 +112,7 @@ public:
 
     // Obtain string identifier that defines the 
     // position on the space-filling curve
-    std::bitset<bit_size_> bit_id 
-      = std::bitset<bit_size_>( (*parent).curve_id() );
+    BitSet bit_id = BitSet{ (*parent).curve_id() };
     bit_id <<= Dim;
     bit_id |= local_index;
 
@@ -523,6 +524,7 @@ public:
   using Vec         = VecND<CoordType,Dim>;
   using Node        = OcTreeNodeND<OCTREE_ARG>;
   using Node_ptr    = std::unique_ptr<Node>;
+  using BitSet      = std::bitset<OcTreeNodeND<OCTREE_ARG>::bit_size_>;
   using NodeMap     = std::map<std::string,Node*>;
 
   using Entry       = typename Node::Entry;

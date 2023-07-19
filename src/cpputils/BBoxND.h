@@ -66,6 +66,8 @@ public:
   Vec& upright() { return upright_; }
   const Vec& upright() const { return upright_; }
 
+  Vec center() const { T two {2}; return (lowleft_+upright_)/two; }
+
   /*------------------------------------------------------------------ 
   | Return all bounding box vertices in an array
   | (1<<N) returns a power of two, which in this case gives the 
