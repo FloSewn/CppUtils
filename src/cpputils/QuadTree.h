@@ -95,9 +95,11 @@ public:
            const Vec2<V>&  center={0.0,0.0}, 
            size_t          depth=0,
            QuadTree<T,V>*  parent=nullptr)
-  : depth_      { depth  }
-  , parent_     { parent }
-  { update_attributes( scale, max_item, max_depth, center ); }
+  { 
+    update_attributes( scale, max_item, max_depth, center ); 
+    depth_  = depth;
+    parent_ = parent;
+  }
 
   /*------------------------------------------------------------------ 
   | Destructor
@@ -396,8 +398,9 @@ protected:
   void update_attributes(double scale, size_t max_item, 
                          size_t max_depth, const Vec2<V>& center)
   {
-    ASSERT( !split_, "QuadTree::update_attributes(): " 
-      "Failed to update splitted quadtree.");
+    if ( split_ || parent_ || n_items_ > 0 )
+      TERMINATE( "QuadTree::update_attributes(): "
+        "Failed to update splitted quadtree.");
 
     scale_       = scale;
     max_item_    = max_item;
@@ -566,9 +569,9 @@ private:
   size_t         max_item_  { 0 };
   size_t         max_depth_ { 0 };
 
-  Vec2<V>        center_   { 0.0, 0.0 };
-  Vec2<V>        lowleft_  { 0.0, 0.0 };
-  Vec2<V>        upright_  { 0.0, 0.0 };
+  Vec2<V>        center_    { 0.0, 0.0 };
+  Vec2<V>        lowleft_   { 0.0, 0.0 };
+  Vec2<V>        upright_   { 0.0, 0.0 };
 
   bool           split_     { false };
   size_t         depth_     { 0 };
@@ -577,9 +580,6 @@ private:
   List           items_;
   Array          children_  { nullptr };
   QuadTree<T,V>* parent_    { nullptr };
-
-
-
 
 }; // QuadTree
 
