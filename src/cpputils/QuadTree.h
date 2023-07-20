@@ -131,16 +131,16 @@ public:
   /*------------------------------------------------------------------ 
   | Setters
   ------------------------------------------------------------------*/
-  void scale(double v) const 
+  void scale(double v)  
   { update_attributes(v, max_item_, max_depth_, center_); }
 
-  void max_item(size_t v) const 
+  void max_item(size_t v)  
   { update_attributes(scale_, v, max_depth_, center_); }
 
-  void max_depth(size_t v) const 
+  void max_depth(size_t v)  
   { update_attributes(scale_, max_item_, v, center_); }
 
-  void center(const Vec2<V>& v) const 
+  void center(const Vec2<V>& v)  
   { update_attributes(scale_, max_item_, max_depth_, v); }
 
   /*------------------------------------------------------------------ 
