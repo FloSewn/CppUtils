@@ -19,29 +19,21 @@ namespace CppUtils {
 /*********************************************************************
 * GLOBAL CONSTANTS
 *********************************************************************/
-constexpr double CPPUTILS_SMALL  = 1.0E-13; //DBL_EPSILON;
-constexpr double CPPUTILS_MAX    = DBL_MAX;
-constexpr double CPPUTILS_MIN    = DBL_MIN;
-constexpr size_t CPPUTILS_ULP    = 2;
+constexpr double CPPUTILS_SMALL  = std::numeric_limits<double>::epsilon();
+constexpr double CPPUTILS_MAX    = std::numeric_limits<double>::max();
+constexpr double CPPUTILS_MIN    = std::numeric_limits<double>::min();
 
 /*********************************************************************
 * USEFUL FUNCTIONS
+*
+* Sources:
+* --------
+*  - https://randomascii.wordpress.com/2012/02/25/comparing-\
+*    floating-point-numbers-2012-edition/
 *********************************************************************/
 template <typename T> 
 static inline T ABS(T a)
 { return ( (a > T{}) ? a : -a); }
-
-template <typename T>
-static inline bool EQ0(T a, size_t ulp=CPPUTILS_ULP)
-{ 
-  T a2 = a*a; 
-  return (a2 <= std::numeric_limits<T>::epsilon()*a2*ulp);
-}
-
-template <typename T>
-static inline bool EQ(T a, T b, size_t ulp=CPPUTILS_ULP)
-{ return EQ0(a-b, ulp); }
-
 
 template <typename T>
 static inline T MIN(T a, T b) 
@@ -58,6 +50,35 @@ static inline T MOD(T n, T M)
 template <typename T>
 static inline T CLAMP(T x, T lower, T upper)
 { return MAX(lower, MIN(upper, x)); }
+
+template <typename T>
+static inline bool EQ(T a, T b, 
+                      T max_diff=std::numeric_limits<T>::min(),
+                      T max_rel_diff=std::numeric_limits<T>::epsilon())
+{ 
+  // Check if the numbers are really close
+  // -> for comparing numbers near zero
+  const T diff = ABS(a-b);
+
+  if ( diff <= max_diff )
+    return true;
+
+  const T a_abs = ABS(a);
+  const T b_abs = ABS(b);
+  const T largest = MAX(a_abs, b_abs);
+  
+  if ( diff <= largest * max_rel_diff )
+    return true;
+
+  return false; 
+}
+
+template <typename T>
+static inline bool EQ0(T a,
+                       T max_diff=std::numeric_limits<T>::min(),
+                       T max_rel_diff=std::numeric_limits<T>::epsilon())
+{ return EQ(a, {0}, max_diff, max_rel_diff); }
+
 
 /*********************************************************************
 * Argsort
