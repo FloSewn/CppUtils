@@ -240,7 +240,7 @@ public:
 
     // Check for objects in this node
     for ( auto& entry : entries_ )
-      if ( bbox.point_inside_touch( entry.position ) )
+      if ( bbox_.point_inside_touch( entry.position ) )
         found_objects.push_back( entry );
 
   } // query()

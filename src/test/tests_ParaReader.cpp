@@ -153,10 +153,13 @@ static void list_parameters()
   reader.new_vector_parameter<double>( 
       "para_list_2",  "List parameter:", 4 );
 
+
   reader.new_matrix_parameter<int>( 
       "invalid_list_1",  "Invalid list start:", "Invalid list end", 3 );
   reader.new_vector_parameter<double>( 
       "invalid_list_2",  "Invalid list parameter:", 4 );
+  reader.new_matrix_parameter<int>( 
+      "valid_list",  "Invalid list start:", "Invalid list end", 3 );
 
 
   // Check that invalid parameter definition does not succeed
@@ -235,14 +238,26 @@ static void list_parameters()
   CHECK( EQ(reader.get_value<double>(2, "invalid_list_2"), 4.5) );
   CHECK( EQ(reader.get_value<double>(3, "invalid_list_2"), 5.0) );
 
-  try
-  {
-    reader.query<int>( "invalid_list_1" );
-  }
-  catch( ... )
-  {
-    CHECK( true );
-  }
+  // Check that default values have been added to invalid list
+  CHECK( !reader.query<int>( "invalid_list_1" ) );
+
+  CHECK( reader.query<int>( "valid_list", true, -1 ) );
+  CHECK( reader.found("valid_list") );
+  CHECK( EQ(reader.get_value<int>(0, "valid_list"), 1) );
+  CHECK( EQ(reader.get_value<int>(1, "valid_list"), 2) );
+  CHECK( EQ(reader.get_value<int>(2, "valid_list"), 3) );
+  CHECK( EQ(reader.get_value<int>(3, "valid_list"), -1) );
+  CHECK( EQ(reader.get_value<int>(4, "valid_list"), -1) );
+  CHECK( EQ(reader.get_value<int>(5, "valid_list"), 3) );
+  CHECK( EQ(reader.get_value<int>(6, "valid_list"), -1) );
+  CHECK( EQ(reader.get_value<int>(7, "valid_list"), 3) );
+  CHECK( EQ(reader.get_value<int>(8, "valid_list"), -1) );
+  CHECK( EQ(reader.get_value<int>(9, "valid_list"), 3) );
+  CHECK( EQ(reader.get_value<int>(10, "valid_list"), 4) );
+  CHECK( EQ(reader.get_value<int>(11, "valid_list"), 5) );
+  CHECK( EQ(reader.get_value<int>(12, "valid_list"), -1) );
+  CHECK( EQ(reader.get_value<int>(13, "valid_list"), -1) );
+  CHECK( EQ(reader.get_value<int>(14, "valid_list"), -1) );
 
 
 } // list_parameters() 
