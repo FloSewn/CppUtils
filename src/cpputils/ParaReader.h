@@ -322,13 +322,14 @@ public:
   /*------------------------------------------------------------------
   | Class for error handling
   ------------------------------------------------------------------*/
-  class Invalid
+  class Invalid : public std::exception
   {
   public:
-    Invalid(const string& msg){ error_message = msg; }
-    const string& what() const { return error_message; }
+    Invalid(const string& msg) : message_ {msg} {}
+    const char* what() const noexcept override 
+    { return message_.c_str(); }
   private:
-    string error_message;
+    std::string message_;
   };
 
   /*------------------------------------------------------------------
