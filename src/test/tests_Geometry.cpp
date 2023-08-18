@@ -1061,6 +1061,43 @@ void distance_point_edge_sqr()
 
 } // distance_point_edge_sqr()
 
+/*********************************************************************
+* Test calculation of polygon area
+*********************************************************************/
+void polygon_area()
+{
+  // CCW polygon
+  std::vector<Vec2d> poly_ccw {};
+
+  poly_ccw.push_back( {0.0, 0.0} );
+  poly_ccw.push_back( {2.0, 0.0} );
+  poly_ccw.push_back( {2.0, 1.0} );
+  poly_ccw.push_back( {0.0, 1.0} );
+
+  CHECK( EQ(polygon_area(poly_ccw), 2.0) );
+
+  poly_ccw.push_back( {0.5, 0.5} );
+
+  CHECK( polygon_area(poly_ccw) > 0 );
+
+
+  // CW polygon
+  std::vector<Vec2d> poly_cw {};
+
+  poly_cw.push_back( {0.0, 0.0} );
+  poly_cw.push_back( {0.0, 1.0} );
+  poly_cw.push_back( {2.0, 1.0} );
+  poly_cw.push_back( {2.0, 0.0} );
+
+  CHECK( EQ(polygon_area(poly_cw), -2.0) );
+
+  poly_cw.push_back( {0.5, 0.5} );
+
+  CHECK( polygon_area(poly_cw) < 0 );
+
+
+} // polygon_area()
+
 } // namespace GeometryTests
 
 
@@ -1088,5 +1125,6 @@ void run_tests_Geometry()
   GeometryTests::in_on_quad();
   GeometryTests::in_quad();
   GeometryTests::distance_point_edge_sqr();
+  GeometryTests::polygon_area();
 
 } // run_tests_Geometry()
