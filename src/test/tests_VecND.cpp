@@ -108,6 +108,24 @@ static void addition()
 
   CHECK( a2.cross(b2) == -2 );
   CHECK( cross(a2, b2) == -2 );
+  // In 2D: z should point to x
+  CHECK( a2.z == 1 );
+  a2.z = 2;
+  CHECK( a2.x == 2 );
+
+  // In 1D: z & y should point to x
+  VecND<int,1> a1 { 1 };
+  CHECK( a1.x == 1 );
+  CHECK( a1.y == 1 );
+  CHECK( a1.z == 1 );
+  a1.y = 2;
+  CHECK( a1.x == 2 );
+  CHECK( a1.y == 2 );
+  CHECK( a1.z == 2 );
+  a1.z = 3;
+  CHECK( a1.x == 3 );
+  CHECK( a1.y == 3 );
+  CHECK( a1.z == 3 );
 
 
   VecND<int,3> a3 { 1, 2, 3 };
