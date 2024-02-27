@@ -161,6 +161,16 @@ static void addition()
   CHECK( EQ(ang_1.min(), 0.1) );
   CHECK( EQ(ang_1.max(), 0.7) );
 
+
+
+  // Handle access to y and z coordinates in case of too low dimension
+  VecND<int,1> foo_1 {1};
+  CHECK( foo_1.y == 1 );
+  CHECK( foo_1.z == 1 );
+
+  VecND<int,2> foo_2 {1, 2};
+  CHECK( foo_2.z == 1 );
+
 } // addition()
 
 } // namespace VecNDTests
